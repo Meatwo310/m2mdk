@@ -6,8 +6,8 @@ Java 21を用意し、GradleはリポジトリのWrapper（`./gradlew`）を使�
 
 - `src/main/java/`: Gradleプラグインの実装
 - `src/test/java/`: Gradle TestKitによる機能テスト
-- `sandbox/`: ローカルのプラグインを`includeBuild("..")`で利用する独立したビルド
-- `sandbox/neoforge/`: Minecraft 1.21.1 / NeoForgeのModサブプロジェクト
+- `sandbox/`: CIとローカルでプラグインの変更を検証するための独立したビルド。`includeBuild("..")`で開発中のプラグインを利用します。
+- `sandbox/neoforge/`: Minecraft 1.21.1 / NeoForgeの検証用Modサブプロジェクト
 
 利用方法は[README.md](README.md)を参照してください。
 
@@ -23,6 +23,14 @@ Java 21を用意し、GradleはリポジトリのWrapper（`./gradlew`）を使�
 ```
 
 ルートの`build`には`functionalTest`が含まれます。サブプロジェクト間のメタデータ分離、初期値、実行タスク、configuration cacheの再利用、不正なMod IDの拒否を確認します。
+
+sandboxのビルドでは、実際のMinecraft / NeoForge依存を使ったModのコンパイル、メタデータ生成、JARへの組み込みを検証します。検証用Modは最小限の構成を維持し、機能追加や不具合修正に応じて検証ケースを追加してください。
+
+[CIワークフロー](.github/workflows/ci.yml)はUbuntu / Java 21で上記のビルドを実行します。sandboxの`check`と`build`には`verifyModJar`が含まれ、生成JARのエントリクラスとメタデータを検証します。検証のみを実行する場合は、次のコマンドを使用してください。sandboxの期待値を変更した場合は、`sandbox/neoforge/build.gradle.kts`内の検証タスクの期待値も更新してください。
+
+```sh
+./gradlew -p sandbox :neoforge:verifyModJar --configuration-cache
+```
 
 実行構成やMod読み込みに影響する変更は、クライアントを起動して確認してください。
 
