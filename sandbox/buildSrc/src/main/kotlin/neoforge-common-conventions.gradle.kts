@@ -1,3 +1,5 @@
+import net.meatwo310.mdk.build.sharedCode
+
 plugins {
     `java-library`
     idea
@@ -10,7 +12,7 @@ val javaVersion = project.property("javaVersion").toString()
 val neoFormVer = project.property("neoFormVer").toString()
 
 dependencies {
-    api(project(":common"))
+    api(project(sharedCode().commonProject.get()))
 }
 
 base {

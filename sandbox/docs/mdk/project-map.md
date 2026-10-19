@@ -19,6 +19,8 @@ This file maps repository locations to responsibilities.
 - Honors a loader project's `ciRequiresCommon=false` property when a standalone
   project does not have a matching `<minecraft>-common` project.
 - Reads `version.txt` into `modVersion`.
+- Supplies `sharedCode` project paths and optional version-config participation.
+- Exports source-set directory artifacts for explicit project dependencies.
 - Sets common subproject group, version, repositories, Java compile encoding,
   archive version, and IDEA behavior.
 
@@ -156,6 +158,27 @@ This file maps repository locations to responsibilities.
 
 - Kotlin helpers for source sets, CI runtime mod staging, Fabric metadata,
   dependency version actions, version support, and version catalog access.
+
+`ModInput.kt`, `SharedCode.kt`
+
+- Defines file-based `ModInput` contributions and explicit resource priorities.
+- Exports classes, processed resources, filtered sources, and raw resource roots via
+  consumable configurations. Producer task dependencies travel with outputs.
+- Stages source files with their original include/exclude rules and omits raw
+  resources; processed resources are supplied by composition.
+- Consumes shared contributions through project dependencies without looking up
+  another project's source sets or forcing its evaluation.
+- `sharedCode` takes explicit common/version project paths. Repository defaults
+  are wired in the root build, not inferred inside reusable conventions.
+- `versionConfigEnabled=false` explicitly omits version config for optional
+  config integrations; a required config integration still requires its artifacts.
+
+`ResourceComposition.kt`, `SourceSetArtifacts.kt`
+
+- Compose contributions using supplied priorities, independent of project names.
+- Share processed resources across distribution jars, sources jars, and staged runs.
+- Replace contributed runtime outputs/artifacts while preserving external dependencies.
+- Local source-set naming policy is adapted separately from composition inputs.
 
 `PlatformArtifacts.kt`
 

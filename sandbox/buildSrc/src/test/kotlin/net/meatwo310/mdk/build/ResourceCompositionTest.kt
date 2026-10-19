@@ -55,12 +55,47 @@ class ResourceCompositionTest {
         cases.remove("deleted.txt")
         cases["all.txt"] = inputs.filter { it.owner != "platform" }
 
+        targets.forEach { target ->
+            write(root.resolve("$target/src/main/resources/unique-platform-main.txt"), "updated\n")
+            root.resolve("$target/src/configClient/java/fixture/platform_configClient.java").delete()
+        }
+
         // Stage first, then archive: development runs must not contaminate later jars.
         run(root, targets.map { ":$it:stageModForDevelopment" } + tasks)
-        verify(root, cases)
+        verify(root, cases, changed = true)
         listOf("common", "version").forEach { owner ->
-            assertTrue(root.resolve("$owner/build/libs").walkTopDown().none { it.name.endsWith("-sources.jar") }, owner)
+            assertTrue(root.resolve("${directory(owner)}/build/libs").walkTopDown().none { it.name.endsWith("-sources.jar") }, owner)
         }
+    }
+
+    @Test
+    fun `cold development staging respects explicit priorities for arbitrary input names`() {
+        val root = temporary.newFolder("explicit-inputs")
+        val cases = resourceCases()
+        prepareBuild(root, cases)
+        root.resolve("build.gradle.kts").appendText("""
+
+            project(":fabric") {
+                val sets = extensions.getByType<SourceSetContainer>()
+                val lower = sets.create("additionalAssets")
+                val higher = sets.create("preferredAssets")
+                includeModInputs(
+                    localModInput(lower, ResourcePriority(-1, 10)),
+                    localModInput(higher, ResourcePriority(-1, 0)),
+                )
+            }
+        """.trimIndent() + "\n")
+        write(root.resolve("fabric/src/additionalAssets/resources/all.txt"), "lower\n")
+        write(root.resolve("fabric/src/preferredAssets/resources/all.txt"), "explicit winner\n")
+        val stages = targets.map { ":$it:stageModForDevelopment" }
+        val archives = targets.flatMap { target ->
+            listOf("jar", "sourcesJar", "verifyRuntimeRoots").map { ":$target:$it" }
+        }
+        // No prior archive build: staging must be independently usable.
+        run(root, stages)
+        run(root, archives)
+        cases["renamed.txt"] = cases.remove("expanded.txt")!!
+        verify(root, cases, fabricResourceOverride = "explicit winner\n")
     }
 
     private fun resourceCases(): MutableMap<String, List<Input>> {
@@ -82,13 +117,19 @@ class ResourceCompositionTest {
     private fun prepareBuild(root: File, cases: Map<String, List<Input>>) {
         write(root.resolve("settings.gradle.kts"), """
             rootProject.name = "resource-regression"
-            include("common", "version", ${targets.joinToString { "\"$it\"" }})
+            include(":libraries:foundation", ":editions:shared", "external", ${targets.joinToString { "\"$it\"" }})
+            project(":libraries:foundation").projectDir = file("inputs/shared-library")
+            project(":editions:shared").projectDir = file("inputs/version-library")
         """.trimIndent() + "\n")
+        listOf("libraries", "editions").forEach { root.resolve(it).mkdirs() }
         copyResource("build.gradle.kts", root.resolve("build.gradle.kts"))
         write(root.resolve("buildSrc/build.gradle.kts"), "plugins { `kotlin-dsl` }\nrepositories { mavenCentral() }\n")
-        listOf("SourceSetArtifacts.kt", "ConfigSourceSets.kt", "ResourceComposition.kt").forEach { name ->
+        listOf("SourceSetArtifacts.kt", "ConfigSourceSets.kt", "ResourceComposition.kt", "ModInput.kt", "SharedCode.kt").forEach { name ->
             copyResource("helpers/$name", root.resolve("buildSrc/src/main/kotlin/net/meatwo310/mdk/build/$name"))
         }
+        write(root.resolve("external/src/main/java/fixture/External.java"), "package fixture; public class External {}\n")
+        write(root.resolve("${directory("common")}/src/main/java/fixture/Excluded.java"), "must not compile or be published\n")
+        write(root.resolve("${directory("version")}/src/config/java/fixture/Excluded.java"), "must not compile or be published\n")
         cases.forEach { (name, candidates) ->
             candidates.forEach { input ->
                 projects(input).forEach { project ->
@@ -106,10 +147,21 @@ class ResourceCompositionTest {
             projects(input).forEach { project ->
                 write(
                     root.resolve("$project/src/${input.sourceSet}/java/${input.className}.java"),
-                    "package fixture; public class ${input.owner}_${input.sourceSet} {}\n",
+                    "package fixture; public class ${input.owner}_${input.sourceSet} { ${references(project, input)} }\n",
                 )
             }
         }
+    }
+
+    private fun references(project: String, input: Input): String = when {
+        input.owner == "version" && input.sourceSet == "main" -> "common_main shared;"
+        input.owner == "version" && input.sourceSet == "config" -> "common_config shared;"
+        input.owner == "platform" && input.sourceSet == "config" ->
+            "common_config shared;" + if (project == "optional") "" else " version_config version;"
+        input.owner == "platform" && input.sourceSet == "main" ->
+            "version_main version; common_main shared;" + if (project == "disabled") "" else " platform_config config;"
+        input.owner == "platform" && input.sourceSet == "configClient" -> "platform_config config;"
+        else -> ""
     }
 
     private fun run(root: File, tasks: List<String>) = GradleRunner.create()
@@ -120,12 +172,26 @@ class ResourceCompositionTest {
         ))
         .build()
 
-    private fun verify(root: File, cases: Map<String, List<Input>>) {
+    private fun verify(
+        root: File,
+        cases: Map<String, List<Input>>,
+        changed: Boolean = false,
+        fabricResourceOverride: String? = null,
+    ) {
         targets.forEach { target ->
             val expected = cases.mapNotNull { (name, candidates) ->
-                candidates.firstOrNull { enabled(target, it) }?.let { name to it.content }
+                candidates.firstOrNull { enabled(target, it) }?.let {
+                    val content = when {
+                        target == "fabric" && name == "all.txt" && fabricResourceOverride != null -> fabricResourceOverride
+                        changed && name == "unique-platform-main.txt" -> "updated\n"
+                        else -> it.content
+                    }
+                    name to content
+                }
             }.toMap()
-            val expectedClasses = inputs.filter { enabled(target, it) }.map { it.className }.toSet()
+            val expectedClasses = inputs.filter {
+                enabled(target, it) && !(changed && it.owner == "platform" && it.sourceSet == "configClient")
+            }.map { it.className }.toSet()
             val stage = root.resolve("$target/build/mdk/developmentMod")
             val merged = root.resolve("$target/build/mdk/composedResources")
             ZipFile(root.resolve("$target/build/libs/$target.jar")).use { runtime ->
@@ -168,7 +234,13 @@ class ResourceCompositionTest {
         }
     }
 
-    private fun projects(input: Input) = if (input.owner == "platform") targets else listOf(input.owner)
+    private fun projects(input: Input) = if (input.owner == "platform") targets else listOf(directory(input.owner))
+
+    private fun directory(owner: String): String = when (owner) {
+        "common" -> "inputs/shared-library"
+        "version" -> "inputs/version-library"
+        else -> owner
+    }
 
     private fun copyResource(name: String, destination: File) {
         val content = requireNotNull(javaClass.getResourceAsStream("/resource-composition/$name")) {

@@ -5,6 +5,7 @@ import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileCopyDetails
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
@@ -27,18 +28,16 @@ private class ComposedResourceFilter(private val directory: File) : Action<FileC
 }
 
 /** Raw inputs must not survive resource renames or exclusions in sources jars. */
-private class SourceResourceFilter(private val roots: Set<File>) : Action<FileCopyDetails> {
+internal class SourceResourceFilter(private val roots: FileCollection) : Action<FileCopyDetails> {
     override fun execute(details: FileCopyDetails) {
-        if (roots.any { details.file.toPath().startsWith(it.toPath()) }) {
+        if (roots.files.any { details.file.toPath().startsWith(it.toPath()) }) {
             details.exclude()
         }
     }
 }
 
-private data class ResourceSource(val owner: Project, val sourceSet: SourceSet)
-
 class ResourceComposition internal constructor(private val project: Project) {
-    private val sources = mutableListOf<ResourceSource>()
+    private val sources = mutableListOf<ModInput>()
     private val resourceDirectory = project.layout.buildDirectory.dir("mdk/composedResources")
     val resources: TaskProvider<Sync> = project.tasks.register<Sync>("composeModResources") {
         description = "Composes resources by project and source set priority."
@@ -46,6 +45,16 @@ class ResourceComposition internal constructor(private val project: Project) {
         into(resourceDirectory)
     }
     private var development: SourceSet? = null
+    private val runtimeSourceSets = linkedSetOf<SourceSet>()
+    private var primaryRuntime: SourceSet? = null
+
+    fun runtime(sourceSet: SourceSet, primary: Boolean = false) {
+        runtimeSourceSets.add(sourceSet)
+        if (primary) {
+            require(primaryRuntime == null || primaryRuntime === sourceSet) { "Only one primary runtime is allowed" }
+            primaryRuntime = sourceSet
+        }
+    }
 
     init {
         val filter = ComposedResourceFilter(resourceDirectory.get().asFile)
@@ -57,30 +66,15 @@ class ResourceComposition internal constructor(private val project: Project) {
             from(resources)
             eachFile(filter)
         }
-        project.extensions.getByType<SourceSetContainer>()
-            .matching { it.name == "main" || it.name == "client" }.all {
-                include(project, this)
-            }
         project.afterEvaluate {
-            val ordered = sources.sortedWith(compareBy<ResourceSource>(
-                { if (it.owner == project) 0 else if (it.owner.path == ":common") 2 else 1 },
-                {
-                    when (it.sourceSet.name) {
-                        "configClient" -> 0
-                        "client" -> 1
-                        "config" -> 2
-                        else -> 3
-                    }
-                },
-            ))
+            val ordered = orderedInputs()
             this@ResourceComposition.resources.configure {
-                for ((owner, sourceSet) in ordered) {
-                    dependsOn(owner.tasks.named(sourceSet.processResourcesTaskName))
-                    from(sourceSet.output.resourcesDir)
+                for (input in ordered) {
+                    from(input.resources)
                 }
             }
             val sourceResourceFilter = SourceResourceFilter(
-                sources.flatMap { it.sourceSet.resources.srcDirs }.toSet(),
+                project.files(sources.map { it.resourceRoots }),
             )
             project.tasks.withType<Jar>().matching { it.name == "sourcesJar" }.configureEach {
                 eachFile(sourceResourceFilter)
@@ -89,10 +83,16 @@ class ResourceComposition internal constructor(private val project: Project) {
         }
     }
 
-    fun include(owner: Project, sourceSet: SourceSet) {
-        if (sources.none { it.sourceSet === sourceSet }) {
-            sources.add(ResourceSource(owner, sourceSet))
+    private fun orderedInputs(): List<ModInput> = sources.sortedWith(
+        compareBy({ it.priority.layer }, { it.priority.withinLayer }),
+    )
+
+    fun include(input: ModInput) {
+        val existing = sources.find { it.id == input.id }
+        require(existing == null || existing.priority == input.priority) {
+            "Conflicting resource priorities for '${input.id}'"
         }
+        if (existing == null) sources.add(input)
     }
 
     /** A single mod root for all loaders, without modifying compilation outputs. */
@@ -110,8 +110,8 @@ class ResourceComposition internal constructor(private val project: Project) {
         // Resolve the contributors after all optional conventions have registered their outputs.
         project.afterEvaluate {
             stage.configure {
-                for ((_, sourceSet) in sources) {
-                    from(sourceSet.output)
+                for (input in sources) {
+                    from(input.output)
                 }
             }
         }
@@ -125,30 +125,19 @@ class ResourceComposition internal constructor(private val project: Project) {
     }
 
     private fun configureDevelopmentClasspath(development: SourceSet) {
-        val originalOutputs = project.files(sources.map { it.sourceSet.output })
-        val commonJars = project.files(sources.map { it.owner }.distinct().filter { it != project }.map {
-            it.tasks.named<Jar>("jar").flatMap { jar -> jar.archiveFile }
-        })
-        val sourceSets = project.extensions.getByType<SourceSetContainer>()
+        val originalOutputs = project.files(sources.map { it.output })
+        val commonJars = project.files(sources.map { it.replacedRuntimeArtifacts })
         // Keep each environment's dependencies (notably Fabric's client/server Minecraft jars),
         // replacing only the mod's own roots and shared project jars with the staged mod.
-        sourceSets.matching { it.name !in setOf("config", "configClient", "mdkDevelopment") }.all {
-            runtimeClasspath = development.output + (runtimeClasspath - originalOutputs - commonJars)
+        for (target in runtimeSourceSets) {
+            target.runtimeClasspath = development.output + (target.runtimeClasspath - originalOutputs - commonJars)
         }
-        development.runtimeClasspath = sourceSets.named("main").get().runtimeClasspath
-        development.compileClasspath = sourceSets.named("main").get().compileClasspath
+        val primary = requireNotNull(primaryRuntime) { "Register a primary runtime before staging a mod" }
+        development.runtimeClasspath = primary.runtimeClasspath
+        development.compileClasspath = primary.compileClasspath
     }
 }
 
 fun Project.resourceComposition(): ResourceComposition =
     extensions.findByType(ResourceComposition::class.java)
         ?: ResourceComposition(this).also { extensions.add("mdkResourceComposition", it) }
-
-fun Project.developmentModSourceSet(): SourceSet = resourceComposition().developmentSourceSet()
-
-internal fun Project.includeComposedResources(sourceSet: SourceSet) {
-    val owner = rootProject.allprojects.first { candidate ->
-        candidate.extensions.findByType(SourceSetContainer::class.java)?.any { it === sourceSet } == true
-    }
-    resourceComposition().include(owner, sourceSet)
-}

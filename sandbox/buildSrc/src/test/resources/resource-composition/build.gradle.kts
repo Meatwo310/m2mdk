@@ -1,38 +1,55 @@
 import net.meatwo310.mdk.build.*
 
-subprojects { apply(plugin = "java-library") }
-val shared = project(":common")
-val versionProject = project(":version")
+subprojects {
+    apply(plugin = "java-library")
+    exportModInputs()
+}
+val shared = project(":libraries:foundation")
+val versionProject = project(":editions:shared")
+versionProject.dependencies.add("api", shared)
 val sharedConfig = shared.configureConfigSourceSet()
-val versionConfig = versionProject.configureConfigSourceSet()
+versionProject.sharedCode { commonProject.set(shared.path) }
+val versionConfig = versionProject.configureVersionCommonConfigSourceSet()
 shared.includeConfigOutput(sharedConfig)
-versionProject.includeConfigOutput(versionConfig)
-subprojects.filter { it.name !in setOf("common", "version") }.forEach { target ->
+shared.extensions.getByType<SourceSetContainer>().named("main") { java.exclude("fixture/Excluded.java") }
+versionConfig.java.exclude("fixture/Excluded.java")
+subprojects.filter { it.name in setOf("neo", "legacy", "forge", "fabric", "disabled", "optional", "late") }.forEach { target ->
     with(target) {
         val sets = extensions.getByType<SourceSetContainer>()
         val java = extensions.getByType<JavaPluginExtension>()
         if (name != "late") java.withSourcesJar()
-        includeSourceSetArtifacts(
-            versionProject.extensions.getByType<SourceSetContainer>().getByName("main"),
-            shared.extensions.getByType<SourceSetContainer>().getByName("main"),
-        )
+        sharedCode {
+            commonProject.set(shared.path)
+            versionProject.set(":editions:shared")
+            versionConfigEnabled.set(name != "optional")
+        }
+        dependencies.add("implementation", versionProject)
+        dependencies.add("runtimeOnly", project(":external"))
+        includeSharedMainInputs()
         if (name == "fabric") {
             val client = sets.create("client")
             tasks.named<Jar>("jar") { from(client.output) }
             tasks.named<Jar>("sourcesJar") { from(client.allSource) }
+            client.runtimeClasspath += configurations.getByName("runtimeClasspath")
         }
         if (name != "disabled") {
             val config = configureConfigSourceSet()
-            val sharedSets = SharedConfigSourceSets(sharedConfig, if (name == "optional") null else versionConfig)
+            val sharedSets = optionalSharedConfigInputs()
             val configSets = if (name in setOf("neo", "fabric")) {
                 arrayOf(config, configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME))
             } else arrayOf(config)
+            config.addConfigClasspath(sharedSets)
+            configSets.drop(1).forEach { it.addConfigClasspath(sharedSets, config) }
             includeConfigOutput(sharedSets, *configSets)
             if (name == "fabric") {
                 addConfigOutputTo("main", sharedSets, config)
                 addConfigOutputTo("client", sharedSets, *configSets)
             } else if (name != "forge") {
                 addConfigOutputTo("main", sharedSets, *configSets)
+            } else {
+                sets.named("main") {
+                    for (input in sharedSets.including(project, *configSets)) compileClasspath += input.output
+                }
             }
         }
         if (name == "late") java.withSourcesJar()
@@ -52,11 +69,17 @@ subprojects.filter { it.name !in setOf("common", "version") }.forEach { target -
         developmentModSourceSet()
         // Persist paths as task inputs, avoiding Project/SourceSet access during execution.
         tasks.register("verifyRuntimeRoots") {
-            val roots = objects.fileCollection().from(sets.named("main").get().runtimeClasspath)
-            inputs.files(roots)
+            val roots = listOfNotNull(sets.findByName("main"), sets.findByName("client"))
+                .map { objects.fileCollection().from(it.runtimeClasspath) }
+            val external = project(":external").tasks.named<Jar>("jar").flatMap { it.archiveFile }
+            inputs.files(roots, external)
             val expected = layout.buildDirectory.dir("mdk/developmentMod").get().asFile
             doLast {
-                check(roots.files == setOf(expected)) { "Uncomposed mod roots: ${roots.files}" }
+                for (classpath in roots) {
+                    check(classpath.files == setOf(expected, external.get().asFile)) {
+                        "Unexpected runtime roots: ${classpath.files}"
+                    }
+                }
             }
         }
         tasks.named<JavaCompile>("compileJava") {

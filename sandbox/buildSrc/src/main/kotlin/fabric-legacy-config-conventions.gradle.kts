@@ -1,13 +1,10 @@
 import net.meatwo310.mdk.build.*
 
-val minecraftVersion = project.property("minecraftVersion").toString()
 val forgeConfigApiPortVersion = project.property("forgeConfigApiPortVersion").toString()
 
 disallowConfigConvention("fabric-config-conventions", "fabric-legacy-config-conventions")
 configureFabricConfigConvention(
-    minecraftVersion,
     forgeConfigApiPortVersion,
-    "fabric-legacy-config-conventions",
     VersionCatalogLibrary.ForgeConfigApiPortFabricLegacy,
     VersionConfigSourceSet.OPTIONAL,
 )

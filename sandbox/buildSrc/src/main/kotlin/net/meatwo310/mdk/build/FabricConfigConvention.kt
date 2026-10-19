@@ -12,9 +12,7 @@ enum class VersionConfigSourceSet {
 }
 
 fun Project.configureFabricConfigConvention(
-    minecraftVersion: String,
     forgeConfigApiPortVersion: String,
-    conventionName: String,
     dependencyLibrary: VersionCatalogLibrary,
     versionConfigSourceSet: VersionConfigSourceSet,
 ) {
@@ -34,9 +32,9 @@ fun Project.configureFabricConfigConvention(
         val configClient = configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME)
         val sourceSets = extensions.getByType<SourceSetContainer>()
         val sharedConfig = when (versionConfigSourceSet) {
-            VersionConfigSourceSet.REQUIRED -> sharedConfigSourceSets(minecraftVersion, conventionName)
+            VersionConfigSourceSet.REQUIRED -> requiredSharedConfigInputs()
             VersionConfigSourceSet.OPTIONAL ->
-                sharedConfigSourceSetsWithOptionalVersion(minecraftVersion, conventionName)
+                optionalSharedConfigInputs()
         }
         val client = sourceSets.findByName("client")
 

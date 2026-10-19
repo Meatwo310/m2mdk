@@ -21,9 +21,7 @@ val modFabricClientEntrypoint = project.property("modFabricClientEntrypoint").to
 val minecraftVersion = project.property("minecraftVersion").toString()
 val javaVersion = project.property("javaVersion").toString()
 
-val commonProject = ":$minecraftVersion-common"
-val sharedCommonProject = ":common"
-evaluationDependsOn(sharedCommonProject)
+val commonProject = sharedCode().versionProject.get()
 val generatedModMetadataDir = layout.buildDirectory.dir("generated/sources/modMetadata")
 val fabricModMetadata = extensions.create<FabricModMetadataExtension>("fabricModMetadata")
 configureCiRuntimeMods()
@@ -105,7 +103,4 @@ tasks.named("sourcesJar") {
     dependsOn(generateModMetadata)
 }
 
-includeSourceSetArtifacts(
-    project(commonProject).sourceSets.main.get(),
-    project(sharedCommonProject).sourceSets.main.get(),
-)
+includeSharedMainInputs()

@@ -26,10 +26,7 @@ val javaVersion = project.property("javaVersion").toString()
 val forgeEventbusValidatorVersion = project.findProperty("forgeEventbusValidatorVersion")?.toString()
 
 val forgeFullVersion = "$minecraftVersion-$forgeVersion"
-val commonProject = ":$minecraftVersion-common"
-val sharedCommonProject = ":common"
-evaluationDependsOn(commonProject)
-evaluationDependsOn(sharedCommonProject)
+val commonProject = sharedCode().versionProject.get()
 configureCiRuntimeMods()
 configurePlatformArtifacts(loader = "forge", javaVersion = javaVersion.toInt(), sourcesJarTaskName = "sourcesJar")
 
@@ -150,10 +147,7 @@ tasks.named("sourcesJar") {
     dependsOn(generateModMetadata)
 }
 
-includeSourceSetArtifacts(
-    project(commonProject).sourceSets.main.get(),
-    project(sharedCommonProject).sourceSets.main.get(),
-)
+includeSharedMainInputs()
 
 tasks.jar {
     from(generateModMetadata)

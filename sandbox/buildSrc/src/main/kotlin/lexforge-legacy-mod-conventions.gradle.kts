@@ -24,9 +24,7 @@ val parchmentMinecraftVersion = project.property("parchmentMinecraftVersion").to
 val parchmentMappingsVersion = project.property("parchmentMappingsVersion").toString()
 
 val forgeFullVersion = "$minecraftVersion-$forgeVersion"
-val commonProject = ":$minecraftVersion-common"
-val sharedCommonProject = ":common"
-evaluationDependsOn(sharedCommonProject)
+val commonProject = sharedCode().versionProject.get()
 configureCiRuntimeMods()
 configurePlatformArtifacts(loader = "forge", javaVersion = 17, sourcesJarTaskName = "sourcesJar")
 
@@ -168,10 +166,7 @@ tasks.named("sourcesJar") {
     dependsOn(generateModMetadata)
 }
 
-includeSourceSetArtifacts(
-    project(commonProject).sourceSets.main.get(),
-    project(sharedCommonProject).sourceSets.main.get(),
-)
+includeSharedMainInputs()
 
 tasks.jar {
     manifest.attributes(mapOf("MixinConfigs" to "$modId.mixins.json"))

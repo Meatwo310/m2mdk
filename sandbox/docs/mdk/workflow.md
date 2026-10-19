@@ -96,12 +96,18 @@ For resource composition changes, run the Kotlin/Gradle TestKit regression test
 with a JDK supported by the Gradle wrapper available through `JAVA_HOME`:
 
 ```bash
-./gradlew -p buildSrc test --configuration-cache --no-daemon --max-workers=1
+./gradlew -p buildSrc test --configuration-cache --no-daemon --no-parallel --max-workers=1 \
+  -Dorg.gradle.jvmargs=-Xmx512m -Pkotlin.compiler.execution.strategy=in-process
 ```
 
 This checks project/source-set precedence, jar/development/source-resource
 agreement (including the expected classes), optional config, stale output removal,
 and configuration cache reuse with one worker and project parallelism disabled.
+Shared inputs are consumed as directory artifacts from explicitly configured,
+nested project paths. Fixtures compile references between layers and check that
+external runtime dependencies survive staging. They also check source exclusions,
+resource updates, deleted class cleanup, arbitrary input names/priorities, and
+staging before any archive has been built.
 The test runs through the standard `buildSrc` `test`/`check` tasks without
 configuring the repository's Minecraft projects and does not require Python.
 Also build and exercise actual runs for Legacy LexForge, ForgeGradle 7, NeoForge,

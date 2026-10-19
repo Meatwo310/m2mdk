@@ -1,19 +1,18 @@
 import net.meatwo310.mdk.build.*
 
-val minecraftVersion = project.property("minecraftVersion").toString()
 val modId = project.property("modId").toString()
-val forgeConfigApiPortVersion = project(":$minecraftVersion-common")
+val forgeConfigApiPortVersion = project(sharedCode().versionProject.get())
     .property("forgeConfigApiPortVersion")
     .toString()
 
 plugins.withId("java-library") {
     val config = configureConfigSourceSet()
-    val sharedConfig = sharedConfigSourceSets(minecraftVersion, "lexforge-config-conventions")
+    val sharedConfig = requiredSharedConfigInputs()
 
     config.addConfigClasspath(sharedConfig)
     includeConfigOutput(sharedConfig, config)
     val main = extensions.getByType<SourceSetContainer>().named(SourceSet.MAIN_SOURCE_SET_NAME).get()
-    for (configSourceSet in sharedConfig.including(config)) {
+    for (configSourceSet in sharedConfig.including(project, config)) {
         main.compileClasspath += configSourceSet.output
     }
 }

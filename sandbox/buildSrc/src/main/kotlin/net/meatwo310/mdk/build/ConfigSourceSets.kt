@@ -8,14 +8,14 @@ import org.gradle.kotlin.dsl.getByType
 const val CONFIG_SOURCE_SET_NAME = "config"
 const val CONFIG_CLIENT_SOURCE_SET_NAME = "configClient"
 
-data class SharedConfigSourceSets(
-    val common: SourceSet,
-    val version: SourceSet?,
+data class SharedConfigInputs(
+    val common: ModInput,
+    val version: ModInput?,
 ) {
-    val all: List<SourceSet> = listOfNotNull(version, common)
+    val all: List<ModInput> = listOfNotNull(version, common)
 
-    fun including(vararg sourceSets: SourceSet): Array<SourceSet> =
-        (sourceSets.toList() + all).toTypedArray()
+    fun including(project: Project, vararg sourceSets: SourceSet): Array<ModInput> =
+        (sourceSets.map { project.localConfigInput(it) } + all).toTypedArray()
 }
 
 fun Project.configureConfigSourceSet(name: String = CONFIG_SOURCE_SET_NAME): SourceSet {
@@ -27,11 +27,11 @@ fun Project.configureConfigSourceSet(name: String = CONFIG_SOURCE_SET_NAME): Sou
 }
 
 fun Project.includeConfigOutput(vararg sourceSets: SourceSet) {
-    includeSourceSetArtifacts(*sourceSets)
+    includeModInputs(*sourceSets.map { localConfigInput(it) }.toTypedArray())
 }
 
-fun Project.includeConfigOutput(sharedConfig: SharedConfigSourceSets, vararg sourceSets: SourceSet) {
-    includeConfigOutput(*sharedConfig.including(*sourceSets))
+fun Project.includeConfigOutput(sharedConfig: SharedConfigInputs, vararg sourceSets: SourceSet) {
+    includeModInputs(*sharedConfig.including(this, *sourceSets))
 }
 
 fun Project.addConfigOutputTo(sourceSetName: String, vararg configSourceSets: SourceSet) {
@@ -50,48 +50,46 @@ fun Project.addConfigOutputTo(sourceSetName: String, vararg configSourceSets: So
 
 fun Project.addConfigOutputTo(
     sourceSetName: String,
-    sharedConfig: SharedConfigSourceSets,
+    sharedConfig: SharedConfigInputs,
     vararg configSourceSets: SourceSet,
 ) {
-    addConfigOutputTo(sourceSetName, *sharedConfig.including(*configSourceSets))
+    addConfigInputsTo(sourceSetName, *sharedConfig.including(this, *configSourceSets))
 }
 
-fun Project.configSourceSetOrNull(name: String = CONFIG_SOURCE_SET_NAME): SourceSet? =
-    extensions.getByType<SourceSetContainer>().findByName(name)
+fun Project.localConfigInput(sourceSet: SourceSet): ModInput =
+    localModInput(sourceSet, ResourcePriority(0, if (sourceSet.name == CONFIG_CLIENT_SOURCE_SET_NAME) 0 else 2))
 
-fun Project.requireConfigSourceSet(
-    projectPath: String,
-    conventionName: String,
-    requiredConventionName: String = "a config convention",
-): SourceSet {
-    evaluationDependsOn(projectPath)
-    return project(projectPath).configSourceSetOrNull()
-        ?: error("Project '$projectPath' must apply $requiredConventionName before $path can apply $conventionName.")
+fun Project.requiredSharedConfigInputs(): SharedConfigInputs =
+    sharedConfigInputs(includeVersion = true)
+
+fun Project.optionalSharedConfigInputs(): SharedConfigInputs =
+    sharedConfigInputs(includeVersion = sharedCode().versionConfigEnabled.get())
+
+private fun Project.sharedConfigInputs(includeVersion: Boolean): SharedConfigInputs {
+    val wiring = sharedCode()
+    return SharedConfigInputs(
+        sharedModInput(wiring.commonProject.get(), CONFIG_SOURCE_SET_NAME, ResourcePriority(2, 2)),
+        if (includeVersion) sharedModInput(wiring.versionProject.get(), CONFIG_SOURCE_SET_NAME, ResourcePriority(1, 2)) else null,
+    )
 }
 
-fun Project.sharedConfigSourceSets(minecraftVersion: String, conventionName: String): SharedConfigSourceSets {
-    val common = requireConfigSourceSet(":common", conventionName)
-    val versionProjectPath = ":$minecraftVersion-common"
-    val version = requireConfigSourceSet(versionProjectPath, conventionName)
-    return SharedConfigSourceSets(common, version)
-}
-
-fun Project.sharedConfigSourceSetsWithOptionalVersion(
-    minecraftVersion: String,
-    conventionName: String,
-): SharedConfigSourceSets {
-    val common = requireConfigSourceSet(":common", conventionName)
-    val versionProjectPath = ":$minecraftVersion-common"
-    evaluationDependsOn(versionProjectPath)
-    val version = project(versionProjectPath).configSourceSetOrNull()
-    return SharedConfigSourceSets(common, version)
-}
-
-fun Project.configureVersionCommonConfigSourceSet(conventionName: String): SourceSet {
+fun Project.configureVersionCommonConfigSourceSet(): SourceSet {
     val config = configureConfigSourceSet()
-    config.addConfigClasspath(requireConfigSourceSet(":common", conventionName, "common-config-conventions"))
+    val common = sharedModInput(sharedCode().commonProject.get(), CONFIG_SOURCE_SET_NAME, ResourcePriority(2, 2))
+    config.compileClasspath += common.output
+    config.runtimeClasspath += common.output
     includeConfigOutput(config)
     return config
+}
+
+private fun Project.addConfigInputsTo(sourceSetName: String, vararg inputs: ModInput) {
+    extensions.getByType<SourceSetContainer>().findByName(sourceSetName)?.let { target ->
+        for (input in inputs) {
+            target.compileClasspath += input.output
+            target.runtimeClasspath += input.output
+            target.output.dir(input.output)
+        }
+    }
 }
 
 fun SourceSet.addConfigClasspath(vararg sourceSets: SourceSet) {
@@ -101,8 +99,12 @@ fun SourceSet.addConfigClasspath(vararg sourceSets: SourceSet) {
     }
 }
 
-fun SourceSet.addConfigClasspath(sharedConfig: SharedConfigSourceSets, vararg sourceSets: SourceSet) {
-    addConfigClasspath(*sharedConfig.including(*sourceSets))
+fun SourceSet.addConfigClasspath(sharedConfig: SharedConfigInputs, vararg sourceSets: SourceSet) {
+    addConfigClasspath(*sourceSets)
+    for (input in sharedConfig.all) {
+        compileClasspath += input.output
+        runtimeClasspath += input.output
+    }
 }
 
 fun SourceSet.addCompileRuntimeClasspathFrom(sourceSet: SourceSet) {

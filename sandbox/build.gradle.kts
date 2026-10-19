@@ -1,4 +1,6 @@
 import groovy.json.JsonOutput
+import net.meatwo310.mdk.build.exportModInputs
+import net.meatwo310.mdk.build.sharedCode
 import net.meatwo310.mdk.build.platformArtifacts
 import net.meatwo310.mdk.build.supportsGameTestServer
 import org.gradle.plugins.ide.idea.model.IdeaModel
@@ -135,6 +137,14 @@ val modVersion = providers.fileContents(layout.projectDirectory.file("version.tx
     .get()
 
 subprojects {
+    // Repository layout policy lives here, outside reusable convention plugins.
+    sharedCode {
+        commonProject.set(":common")
+        if (name != "common" && name != "1.7.10-forge") {
+            versionProject.set(":${name.substringBeforeLast('-')}-common")
+            versionConfigEnabled.set(name.substringBeforeLast('-') !in setOf("1.18.2", "1.19.2"))
+        }
+    }
     val modGroupId = project.property("modGroupId").toString()
 
     extensions.extraProperties["modVersion"] = modVersion
@@ -219,6 +229,7 @@ subprojects {
     }
 
     plugins.withType<JavaLibraryPlugin> {
+        exportModInputs()
         dependencies {
             add("compileOnlyApi", libs.jspecify)
         }
