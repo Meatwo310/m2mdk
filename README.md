@@ -6,7 +6,8 @@ Minecraft Mod開発用のGradleプラグインです。
 
 ## 開発と検証
 
-Java 21を用意し、リポジトリのルートで実行します。
+Java 21を用意し、リポジトリのルートで次のコマンドを実行します。
+GradleはリポジトリのWrapper（`./gradlew`）を使用するため、別途インストールする必要はありません。
 
 ```sh
 ./gradlew build
@@ -37,6 +38,23 @@ sandboxの`build`には`verifyModJar`が含まれます。JARの検証のみを�
 ```
 
 Gradle WrapperのZIPとJARは公式のSHA-256と照合しています。プラグインの依存は`gradle/verification-metadata.xml`でSHA-256を検証します。これは取得済みアーティファクトの固定であり、上流コード全体やMinecraft実行時の依存の監査を意味しません。
+
+### Nixで環境を用意する（任意）
+
+Javaのインストールや`JAVA_HOME`の設定を省きたい方向けに、Nixの開発シェルも用意しています。
+Nixを利用する場合は、リポジトリのルートで次のコマンドを実行すると、
+`flake.lock`で固定したNixpkgsからJava 21が用意され、`JAVA_HOME`も設定されます。
+シェル内では、上記と同じ`./gradlew`コマンドで開発・検証できます。
+Apple Silicon MacとLinuxのARM64 / x86_64に対応しています。
+
+```sh
+nix develop
+```
+
+Nixの`nix-command`と`flakes`機能を有効にしてください。未設定の場合は、
+`nix --extra-experimental-features 'nix-command flakes' develop`でも起動できます。
+direnvとnix-direnvを使用している場合は、`direnv allow`で`.envrc`を有効にすると
+ディレクトリ移動時に開発環境が読み込まれます。
 
 ## 利用側の設定
 

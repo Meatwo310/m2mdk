@@ -3,6 +3,7 @@
 ## 開発環境と構成
 
 Java 21を用意し、GradleはリポジトリのWrapper（`./gradlew`）を使用してください。
+Javaのインストールや環境変数の設定を省きたい場合は、任意で[Nixの開発シェル](README.md#nixで環境を用意する任意)も利用できます。
 
 - `src/main/java/`: Gradleプラグインの実装
 - `src/test/java/`: Gradle TestKitによる機能テスト
@@ -39,6 +40,14 @@ sandboxのビルドでは、実際のMinecraft / NeoForge依存を使ったMod�
 ```
 
 ドキュメントのみの変更ではビルドは不要です。いずれの場合も`git diff --check`で差分の空白エラーを確認してください。生成物、キャッシュ、実行ディレクトリはコミットに含めないでください。
+
+### Nix設定を変更する場合
+
+`flake.nix`や`flake.lock`を変更した場合は、`nix flake check --all-systems`で全対応構成の設定を検証し、
+`nix develop --command ./gradlew build`と
+`nix develop --command ./gradlew -p sandbox :neoforge:build --configuration-cache`で
+開発シェルからビルドできることを確認してください。
+Nixpkgsを更新する場合は`nix flake update nixpkgs`を実行し、`flake.lock`もコミットします。
 
 ## コミットメッセージ
 
