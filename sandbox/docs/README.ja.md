@@ -76,7 +76,7 @@ IntelliJ IDEAまたはGradleでプロジェクトを開いたりインポート�
 2. テンプレートの更新を継続して取り込みたい場合は、通常の開発を始める前に[上流への追従](#上流への追従)を実施します。
 3. `settings.gradle.kts`を編集し、使用しない`include(...)`行をコメントアウトして、Gradleの設定時間とキャッシュ使用量を減らします。
 4. `gradle.properties`でMod ID、名前、グループ、ライセンス、作者、URL、Fabricエントリーポイントを編集し、`version.txt`でModバージョンを編集します。
-5. 他のModとの競合を避けるため、共有設定システム内のものを含む、すべてのJavaパッケージ名を変更します。`Constants`、エントリーポイント、Mixin設定名、refmap名、言語アセット内の`examplemod`をMod IDに置き換えてください。
+5. `net.meatwo310.examplemod`配下のサンプルModのパッケージ名を変更します。`Constants`、エントリーポイント、Mixin設定名、refmap名、言語アセット内の`examplemod`をMod IDに置き換えてください。再利用する設定フレームワークは別の名前空間`net.meatwo310.mdk.config`を使用します。
 6. Mod用のルート`README.md`と`LICENSE`を作成します。将来のテンプレート更新をきれいにマージしたい場合は、`docs/*.md`を変更せずに維持してください。
 
 ## 生成されるメタデータ
@@ -187,6 +187,17 @@ GTNHGradleを使用する1.7.10プロジェクトでは、依存関係の宣言�
 
 ## 設定システム
 
+ローダー非依存の設定フレームワークは、sandboxの外の[`../../packages/config-core`](../../packages/config-core)にあります。独自のwrapper、テスト、sources jarを持つJava 17の独立したビルドで、そのディレクトリで`./gradlew build`を実行するとMinecraftを設定せずに検証できます。sandboxのsettingsは`includeBuild("../packages/config-core")`で接続し、通常のライブラリ依存`net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT`をローカルのビルドに置換します。設定規約はcoreのクラスとソースをModの配布jar・sources jarへ含め、開発実行用にもクラスをステージングします。利用者がmodsディレクトリに別のconfig-core jarを入れる必要はありません。
+
+フレームワークの境界は次のとおりです。
+
+- `net.meatwo310.mdk.config`: 独立パッケージ内のcoreの宣言、値、バインディングの契約です。
+- `net.meatwo310.mdk.config.adapter`: sandboxの`src/config`に残す、バージョン固有のSpec変換とローダー登録です。
+- `net.meatwo310.mdk.config.ui`: `src/configClient`の画面実装と表示ヘルパーです。中立な表示ヘルパーは`common`、Specに依存するヘルパーはバージョンcommon、画面はローダープロジェクトに置きます。
+- `net.meatwo310.examplemod.config`: sandboxの`common/src/config`にある、利用者が編集する宣言の例です。
+
+coreはadapter・画面・利用例に依存しません。Minecraftバージョンごとのadapterと画面実装は、それぞれの版に残します。
+
 共有設定エントリーは`common/src/config/java/.../config`にあります。`ConfigEntryBuilder`でエントリーを定義し、`ConfigEntries`としてまとめ、`ModConfigs`内の`ConfigDeclaration`を通じて各ファイルを公開します。
 
 設定サポートは専用のソースセットに分割されているため、設定規約を使用しないプロジェクトは追加の設定依存関係を解決せずに済みます。共有設定の宣言は`common/src/config`、バージョン固有の設定コードは`<minecraft>/common/src/config`、ローダーとの連携は`<minecraft>/<loader>/src/config`、クライアント専用の設定画面ヘルパーは`<minecraft>/<loader>/src/configClient`に配置します。
@@ -235,6 +246,8 @@ flowchart LR
 
 読みやすさのため、設定関連の辺は論理的な階層を示しています。規約は、利用可能なすべての上流`config`出力を下流のクラスパスとjarへ直接追加します。
 
+commonプロジェクトは、設定宣言とは別に`configClient`からUIヘルパーを公開します。このヘルパーを取り込むのはFabric・NeoForgeの設定連携だけです。
+
 Fabricは`configClient`を作成して`client`へ接続します。クライアント設定ヘルパーを提供しない古いターゲットでは、このソースセットは空です。NeoForgeは`configClient`を`main`へ接続します。LexForgeは、これらのクライアント固有ソースセットをどちらも作成しません。
 
 プロジェクトで設定サポートが必要な場合は、通常のローダー規約に加えて、対応する設定規約プラグインを適用します。
@@ -271,9 +284,9 @@ Fabric 1.18.2～1.19.2では、独立したcommonアーティファクトを持�
 ```java
 package net.meatwo310.examplemod.config;
 
-import net.meatwo310.examplemod.mdk.config.ConfigEntries;
-import net.meatwo310.examplemod.mdk.config.ConfigEntry;
-import net.meatwo310.examplemod.mdk.config.ConfigEntryBuilder;
+import net.meatwo310.mdk.config.ConfigEntries;
+import net.meatwo310.mdk.config.ConfigEntry;
+import net.meatwo310.mdk.config.ConfigEntryBuilder;
 
 import java.util.List;
 
@@ -415,6 +428,8 @@ PlatformConfigRegistrar.registerAll(modContainer, VersionedConfigSpec.bindAll(co
 ## GitHub Actions
 
 ビルドワークフローは`settings.gradle.kts`からサブプロジェクトを検出し、それぞれを個別にビルドしてローダーのアーティファクトをアップロードします。利用可能なサーバーまたはゲームテストのスモークチェックを実行し、スモークテストに`runServer`を使う場合はシャットダウンログを検証したうえで、生成したjarを使ったヘッドレスクライアントのランタイムテストを開始します。ほとんどのローダープロジェクトでは対応する`<minecraft>-common`プロジェクトが必要ですが、単独の`1.7.10-forge`プロジェクトは`ciRequiresCommon=false`でこの要件を無効にしています。なお、Fabric Game TestsはFabric Loomを通じて設定され、Fabricの`build`タスクの一部として実行されます。
+
+`Sandbox integration tests`ワークフローは、最初に独立したconfig coreとsandboxのリソース合成をテストします。`main`・`main2`へのpush、プルリクエスト、手動実行で起動します。信頼された実行ではプラットフォームごとのGradleキャッシュを保存し、プルリクエストでは既存キャッシュを読み取るだけにします。
 
 ### リリースCI
 

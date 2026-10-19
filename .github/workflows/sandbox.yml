@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - main2
     paths-ignore:
       - 'sandbox/docs/**'
       - '**/*.md'
@@ -15,6 +16,9 @@ on:
     paths-ignore:
       - 'sandbox/docs/**'
       - '**/*.md'
+
+permissions:
+  contents: read
 
 concurrency:
   group: sandbox-integration-${{ github.event.pull_request.number || github.ref }}
@@ -25,7 +29,7 @@ defaults:
     working-directory: sandbox
 
 # This workflow tests the consumer project in sandbox against real Minecraft
-# dependencies. Package build and unit tests belong in a separate workflow.
+# dependencies after checking the independent config-core package.
 jobs:
   detect:
     name: Detect sandbox projects and test build logic
@@ -51,6 +55,11 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Test independent config core
+        run: ../packages/config-core/gradlew -p ../packages/config-core build --no-daemon --no-parallel --max-workers=1
 
       - name: Detect sandbox platform projects
         id: detect
@@ -95,7 +104,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          cache-read-only: true
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Build sandbox Mod with real Minecraft dependencies
         run: chmod u+x ./gradlew && ./gradlew ":${{ matrix.subproject }}:build"

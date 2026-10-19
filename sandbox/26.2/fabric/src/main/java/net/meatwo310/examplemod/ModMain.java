@@ -2,8 +2,8 @@ package net.meatwo310.examplemod;
 
 import net.fabricmc.api.ModInitializer;
 import net.meatwo310.examplemod.config.ModConfigs;
-import net.meatwo310.examplemod.mdk.config.PlatformConfigRegistrar;
-import net.meatwo310.examplemod.mdk.config.VersionedConfigSpec;
+import net.meatwo310.mdk.config.adapter.PlatformConfigRegistrar;
+import net.meatwo310.mdk.config.adapter.VersionedConfigSpec;
 
 public class ModMain implements ModInitializer {
     @Override

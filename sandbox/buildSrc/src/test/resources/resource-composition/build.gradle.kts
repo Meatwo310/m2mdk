@@ -3,11 +3,13 @@ import net.meatwo310.mdk.build.*
 subprojects {
     apply(plugin = "java-library")
     exportModInputs()
+    sharedCode { configCoreDependency.set("fixture:config-core:1.0") }
 }
 val shared = project(":libraries:foundation")
 val versionProject = project(":editions:shared")
 versionProject.dependencies.add("api", shared)
 val sharedConfig = shared.configureConfigSourceSet()
+shared.configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME).addConfigClasspath(sharedConfig)
 versionProject.sharedCode { commonProject.set(shared.path) }
 val versionConfig = versionProject.configureVersionCommonConfigSourceSet()
 shared.includeConfigOutput(sharedConfig)
@@ -33,6 +35,8 @@ subprojects.filter { it.name in setOf("neo", "legacy", "forge", "fabric", "disab
             client.runtimeClasspath += configurations.getByName("runtimeClasspath")
         }
         if (name != "disabled") {
+            // A separate runtime copy must be replaced by the embedded contribution.
+            dependencies.add("runtimeOnly", sharedCode().configCoreDependency.get())
             val config = configureConfigSourceSet()
             val sharedSets = optionalSharedConfigInputs()
             val configSets = if (name in setOf("neo", "fabric")) {
@@ -40,12 +44,19 @@ subprojects.filter { it.name in setOf("neo", "legacy", "forge", "fabric", "disab
             } else arrayOf(config)
             config.addConfigClasspath(sharedSets)
             configSets.drop(1).forEach { it.addConfigClasspath(sharedSets, config) }
+            val sharedClient = if (name in setOf("neo", "fabric")) sharedConfigClientInputs(includeVersion = true) else emptyList()
+            configSets.drop(1).forEach { client ->
+                for (input in sharedClient) client.compileClasspath += input.output
+            }
             includeConfigOutput(sharedSets, *configSets)
+            includeModInputs(*sharedClient.toTypedArray())
             if (name == "fabric") {
                 addConfigOutputTo("main", sharedSets, config)
                 addConfigOutputTo("client", sharedSets, *configSets)
+                addConfigInputsTo("client", *sharedClient.toTypedArray())
             } else if (name != "forge") {
                 addConfigOutputTo("main", sharedSets, *configSets)
+                addConfigInputsTo("main", *sharedClient.toTypedArray())
             } else {
                 sets.named("main") {
                     for (input in sharedSets.including(project, *configSets)) compileClasspath += input.output

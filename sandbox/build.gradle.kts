@@ -139,6 +139,7 @@ val modVersion = providers.fileContents(layout.projectDirectory.file("version.tx
 subprojects {
     // Repository layout policy lives here, outside reusable convention plugins.
     sharedCode {
+        configCoreDependency.set("net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT")
         commonProject.set(":common")
         if (name != "common" && name != "1.7.10-forge") {
             versionProject.set(":${name.substringBeforeLast('-')}-common")

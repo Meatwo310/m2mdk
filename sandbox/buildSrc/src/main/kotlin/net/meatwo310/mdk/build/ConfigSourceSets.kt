@@ -21,6 +21,8 @@ data class SharedConfigInputs(
 fun Project.configureConfigSourceSet(name: String = CONFIG_SOURCE_SET_NAME): SourceSet {
     val sourceSets = extensions.getByType<SourceSetContainer>()
     val sourceSet = sourceSets.findByName(name) ?: sourceSets.create(name)
+    dependencies.add(sourceSet.implementationConfigurationName, sharedCode().configCoreDependency.get())
+    configCoreInput()
     sourceSet.compileClasspath += configurations.getByName("compileClasspath")
     sourceSet.runtimeClasspath += sourceSet.output + sourceSet.compileClasspath
     return sourceSet
@@ -79,10 +81,22 @@ fun Project.configureVersionCommonConfigSourceSet(): SourceSet {
     config.compileClasspath += common.output
     config.runtimeClasspath += common.output
     includeConfigOutput(config)
+    configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME).apply {
+        addConfigClasspath(config)
+        addCompileRuntimeClasspathFrom(config)
+    }
     return config
 }
 
-private fun Project.addConfigInputsTo(sourceSetName: String, vararg inputs: ModInput) {
+fun Project.sharedConfigClientInputs(includeVersion: Boolean): List<ModInput> {
+    val wiring = sharedCode()
+    return listOfNotNull(
+        sharedModInput(wiring.commonProject.get(), CONFIG_CLIENT_SOURCE_SET_NAME, ResourcePriority(2, 0)),
+        if (includeVersion) sharedModInput(wiring.versionProject.get(), CONFIG_CLIENT_SOURCE_SET_NAME, ResourcePriority(1, 0)) else null,
+    )
+}
+
+fun Project.addConfigInputsTo(sourceSetName: String, vararg inputs: ModInput) {
     extensions.getByType<SourceSetContainer>().findByName(sourceSetName)?.let { target ->
         for (input in inputs) {
             target.compileClasspath += input.output

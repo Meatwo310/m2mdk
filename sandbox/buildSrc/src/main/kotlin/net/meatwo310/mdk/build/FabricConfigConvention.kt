@@ -37,17 +37,21 @@ fun Project.configureFabricConfigConvention(
                 optionalSharedConfigInputs()
         }
         val client = sourceSets.findByName("client")
+        val sharedConfigClient = sharedConfigClientInputs(includeVersion = sharedConfig.version != null)
 
         config.addConfigClasspath(sharedConfig)
         configClient.addConfigClasspath(sharedConfig, config)
+        for (input in sharedConfigClient) configClient.compileClasspath += input.output
         if (client != null) {
             configClient.addCompileRuntimeClasspathFrom(client)
         }
 
         includeConfigOutput(sharedConfig, config, configClient)
+        includeModInputs(*sharedConfigClient.toTypedArray())
 
         addConfigOutputTo(SourceSet.MAIN_SOURCE_SET_NAME, sharedConfig, config)
         addConfigOutputTo("client", sharedConfig, config, configClient)
+        addConfigInputsTo("client", *sharedConfigClient.toTypedArray())
 
         dependencies.add("runtimeOnly", files(config.output))
         dependencies.add("runtimeOnly", files(configClient.output))

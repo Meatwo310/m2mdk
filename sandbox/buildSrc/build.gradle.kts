@@ -22,7 +22,7 @@ dependencies {
 tasks.processTestResources {
     // Test the current helpers in an isolated build without loading Minecraft plugins.
     from("src/main/kotlin/net/meatwo310/mdk/build") {
-        include("SourceSetArtifacts.kt", "ConfigSourceSets.kt", "ResourceComposition.kt", "ModInput.kt", "SharedCode.kt")
+        include("SourceSetArtifacts.kt", "ConfigSourceSets.kt", "ConfigCore.kt", "ResourceComposition.kt", "ModInput.kt", "SharedCode.kt")
         into("resource-composition/helpers")
     }
 }

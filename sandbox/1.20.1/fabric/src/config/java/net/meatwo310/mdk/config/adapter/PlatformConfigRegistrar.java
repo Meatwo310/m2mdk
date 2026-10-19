@@ -1,0 +1,28 @@
+package net.meatwo310.mdk.config.adapter;
+
+import net.meatwo310.mdk.config.ConfigSide;
+
+import fuzs.forgeconfigapiport.api.config.v2.ForgeConfigRegistry;
+import net.minecraftforge.fml.config.ModConfig;
+
+import java.util.List;
+
+public final class PlatformConfigRegistrar {
+    private PlatformConfigRegistrar() {}
+
+    public static void registerAll(String modId, List<VersionedConfigSpec.BoundConfig> configs) {
+        for (var config : configs) {
+            config.optionalFileName().ifPresentOrElse(
+                    fileName -> ForgeConfigRegistry.INSTANCE.register(modId, toType(config.side()), config.spec(), fileName),
+                    () -> ForgeConfigRegistry.INSTANCE.register(modId, toType(config.side()), config.spec()));
+        }
+    }
+
+    private static ModConfig.Type toType(ConfigSide side) {
+        return switch (side) {
+            case LOCAL -> ModConfig.Type.COMMON;
+            case SYNCED -> ModConfig.Type.SERVER;
+            case CLIENT -> ModConfig.Type.CLIENT;
+        };
+    }
+}

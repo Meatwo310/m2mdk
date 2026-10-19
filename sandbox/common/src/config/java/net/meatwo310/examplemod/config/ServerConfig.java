@@ -1,7 +1,7 @@
 package net.meatwo310.examplemod.config;
 
-import net.meatwo310.examplemod.mdk.config.ConfigEntries;
-import net.meatwo310.examplemod.mdk.config.ConfigEntryBuilder;
+import net.meatwo310.mdk.config.ConfigEntries;
+import net.meatwo310.mdk.config.ConfigEntryBuilder;
 
 public class ServerConfig {
     private static final ConfigEntryBuilder BUILDER = new ConfigEntryBuilder();

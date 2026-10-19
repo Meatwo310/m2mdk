@@ -21,6 +21,8 @@ plugins {
 
 
 /// Common ///
+includeBuild("../packages/config-core")
+
 include("common")
 
 fun includeMc(minecraftVersion: String, kind: String) {

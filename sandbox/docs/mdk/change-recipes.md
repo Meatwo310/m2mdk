@@ -32,11 +32,15 @@ request explicitly asks for a broad update.
 
 ## Add Or Change Config
 
+- Change the neutral framework in repository-root `packages/config-core`.
+- Keep core independent of Minecraft, loader APIs, UI, and sandbox examples.
 - Put shared declarations in `common/src/config`.
 - Put version-specific config helpers in `<mc>/common/src/config`.
 - Put loader config registrar code in `<mc>/<loader>/src/config`.
 - Put client config UI code in `<mc>/<loader>/src/configClient` when that loader
   convention supports it.
+- Put shared display helpers in `common/src/configClient` and Spec-aware UI
+  helpers in `<mc>/common/src/configClient`.
 - Confirm the affected project applies the right `*-config-conventions` plugin.
 - For Fabric config dependencies, check Forge Config API Port and any runtime UI
   mods such as Mod Menu or Forge Config Screens.

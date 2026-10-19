@@ -4,6 +4,25 @@ Use this file when editing the shared config system or adding config entries.
 `docs/README.md` contains the user-facing overview; this file defines the API
 surface agents should treat as template-user facing.
 
+## Ownership And Dependency Boundary
+
+The neutral API lives in the independent `packages/config-core` build at the
+repository root, outside sandbox. Its package is `net.meatwo310.mdk.config`.
+It compiles and tests on Java 17 without Minecraft or loader dependencies.
+Keep example declarations in `sandbox/common/src/config` under
+`net.meatwo310.examplemod.config`.
+
+Spec conversion and registration remain version/platform-specific in sandbox
+`src/config`, under `net.meatwo310.mdk.config.adapter`. UI implementation and
+display helpers belong to `src/configClient`, under `net.meatwo310.mdk.config.ui`.
+Neither belongs in core, even when the implementation is pure Java.
+
+Sandbox consumes the core's binary and sources variants through the module
+coordinate configured in `sharedCode.configCoreDependency`. Settings substitute
+the local build with `includeBuild("../packages/config-core")`. Config conventions
+embed core into jars, sources jars, and staged development runs; do not add a
+second runtime copy or refer to package source directories directly.
+
 ## Preferred Declaration Shape
 
 Declare config entries with one `ConfigEntryBuilder` per config class or nested

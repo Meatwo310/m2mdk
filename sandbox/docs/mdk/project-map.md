@@ -2,6 +2,18 @@
 
 This file maps repository locations to responsibilities.
 
+Paths below are relative to sandbox unless stated otherwise.
+
+## Independent Packages
+
+`../packages/config-core`
+
+- Independent Java 17 library build, wrapper, sources jar, and contract tests.
+- Owns `net.meatwo310.mdk.config` declarations, values, and binding contracts.
+- Has no dependency on sandbox, Minecraft, loaders, or client UI.
+- Included by sandbox settings as a composite build; consumed as a normal
+  binary/sources dependency and embedded by the config conventions.
+
 ## Root
 
 `settings.gradle.kts`
@@ -45,7 +57,11 @@ This file maps repository locations to responsibilities.
 
 `common/src/config`
 
-- Cross-version config model and declaration code.
+- Editable example config declarations; framework core is outside sandbox.
+
+`common/src/configClient`
+
+- Loader-neutral UI display helpers, separate from config core.
 
 `<mc>/common/src/main`
 
@@ -54,7 +70,11 @@ This file maps repository locations to responsibilities.
 
 `<mc>/common/src/config`
 
-- Version-specific config support.
+- Version-specific Spec adapters in `net.meatwo310.mdk.config.adapter`.
+
+`<mc>/common/src/configClient`
+
+- Spec-dependent UI helpers, consumed only by client config integrations.
 
 ## Loader Projects
 
@@ -173,6 +193,14 @@ This file maps repository locations to responsibilities.
 - `versionConfigEnabled=false` explicitly omits version config for optional
   config integrations; a required config integration still requires its artifacts.
 
+`ConfigCore.kt`, `ConfigSourceSets.kt`
+
+- Resolve ordinary binary and sources variants for `sharedCode.configCoreDependency`.
+- Embed core as a low-priority `ModInput`, replacing its separate runtime jar
+  with the staged mod root for development runs.
+- Keep common/version `configClient` inputs separate from declarations, so
+  Fabric and NeoForge consume UI helpers without adding them to LexForge.
+
 `ResourceComposition.kt`, `SourceSetArtifacts.kt`
 
 - Compose contributions using supplied priorities, independent of project names.
@@ -209,9 +237,12 @@ This file maps repository locations to responsibilities.
 
 ## CI And Release
 
-`.github/workflows/build.yml`
+`.github/workflows/sandbox.yml` (repository root)
 
 - Detects platform projects with `writeCiBuildMatrix`.
+- Tests the independent config core and sandbox build logic before the matrix.
+- Runs on pushes to `main` and `main2`, pull requests, and manual dispatch.
+- Saves per-platform Gradle caches on trusted runs; pull requests read caches only.
 - Uploads jars and runtime mod jars, then runs game/server/runtime tests.
 
 `.github/workflows/release.yml`

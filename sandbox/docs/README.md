@@ -79,7 +79,7 @@ Before opening or importing the project in IntelliJ IDEA or Gradle, trim `settin
    [Receiving Upstream Updates](#receiving-upstream-updates) before regular development.
 3. Edit `settings.gradle.kts` and comment out unused `include(...)` lines to reduce Gradle configuration time and cache usage.
 4. Edit `gradle.properties` for your mod id, name, group, license, authors, URLs, and Fabric entry points, and edit `version.txt` for your mod version.
-5. Rename ALL Java package names (including those in the shared configuration system) to avoid conflicts with other mods. Update `Constants`, entry points, mixin config names, refmap names, and language assets from `examplemod` to your mod id.
+5. Rename the example mod packages under `net.meatwo310.examplemod`. Update `Constants`, entry points, mixin config names, refmap names, and language assets from `examplemod` to your mod id. The reusable config framework uses the separate `net.meatwo310.mdk.config` namespace.
 6. Create a root `README.md` and `LICENSE` for your mod. Keep `docs/*.md` unchanged if you want future template updates to merge cleanly.
 
 ## Generated Metadata
@@ -222,6 +222,26 @@ compilation outputs.
 
 ## Configuration System
 
+The loader-neutral config framework lives outside the sandbox in
+[`../../packages/config-core`](../../packages/config-core). It is an independent
+Java 17 build with its own wrapper, tests, and sources jar; run `./gradlew build`
+in that directory without configuring Minecraft. The sandbox settings include
+it through `includeBuild("../packages/config-core")` and substitute the normal
+`net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT` library dependency. Config
+conventions include its classes and sources in the mod's distribution and
+sources jars, and stage its classes for development runs. Users do not need a
+separate config-core jar in their mods directory.
+
+The framework boundaries are:
+
+- `net.meatwo310.mdk.config`: core declarations, values, and binding contracts in the independent package.
+- `net.meatwo310.mdk.config.adapter`: version-specific Spec conversion and loader registration, retained in sandbox `src/config`.
+- `net.meatwo310.mdk.config.ui`: screen implementations and display helpers in `src/configClient`. Neutral display helpers live in `common`; Spec-aware helpers live in version common; screens live in the loader project.
+- `net.meatwo310.examplemod.config`: editable example declarations in sandbox `common/src/config`.
+
+Core does not depend on adapters, screens, or example declarations. Minecraft
+versions retain their own adapter and screen implementations.
+
 Shared config entries live in `common/src/config/java/.../config`. Define entries with `ConfigEntryBuilder`, collect them as `ConfigEntries`, and expose each file through a `ConfigDeclaration` in `ModConfigs`.
 
 Config support is split into dedicated source sets so projects that do not opt into the config conventions can avoid resolving the extra config dependencies. Shared config declarations belong in `common/src/config`, version-specific config code belongs in `<minecraft>/common/src/config`, loader bindings belong in `<minecraft>/<loader>/src/config`, and client-only config screen helpers belong in `<minecraft>/<loader>/src/configClient`.
@@ -272,6 +292,9 @@ flowchart LR
 For readability, the config edges show the logical layering. The conventions
 add every available upstream `config` output directly to the downstream
 classpath and jar.
+
+Common projects export UI helpers from `configClient` separately from config
+declarations. Only Fabric and NeoForge config integrations consume these helpers.
 
 Fabric creates `configClient` and wires it into `client`; the source set is
 empty on older targets that do not provide client config helpers. NeoForge
@@ -324,9 +347,9 @@ work or unusual migration cases.
 ```java
 package net.meatwo310.examplemod.config;
 
-import net.meatwo310.examplemod.mdk.config.ConfigEntries;
-import net.meatwo310.examplemod.mdk.config.ConfigEntry;
-import net.meatwo310.examplemod.mdk.config.ConfigEntryBuilder;
+import net.meatwo310.mdk.config.ConfigEntries;
+import net.meatwo310.mdk.config.ConfigEntry;
+import net.meatwo310.mdk.config.ConfigEntryBuilder;
 
 import java.util.List;
 
@@ -466,6 +489,8 @@ PlatformConfigRegistrar.registerAll(modContainer, VersionedConfigSpec.bindAll(co
 ```
 
 ## GitHub Actions
+
+The `Sandbox integration tests` workflow first tests the independent config core and sandbox resource composition. It runs on pushes to `main` and `main2`, pull requests, and manual dispatch. Trusted runs save Gradle caches for each platform; pull requests read existing caches only.
 
 The build workflow detects subprojects from `settings.gradle.kts`, builds each one independently, uploads loader artifacts, runs the available server or game-test smoke checks, verifies the `runServer` shutdown log when that smoke test is used, and then launches a headless client runtime test with the produced jars. Most loader projects require a matching `<minecraft>-common` project; the standalone `1.7.10-forge` project opts out with `ciRequiresCommon=false`. Note: Fabric Game Tests are configured through Fabric Loom and run as part of the Fabric `build` task.
 
