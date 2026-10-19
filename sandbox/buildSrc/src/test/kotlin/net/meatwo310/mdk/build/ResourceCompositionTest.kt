@@ -54,8 +54,8 @@ class ResourceCompositionTest {
         }
         cases.remove("deleted.txt")
         cases["all.txt"] = inputs.filter { it.owner != "platform" }
-        root.resolve("config-core/src/main/java/fixture/RemovedCore.java").delete()
-        write(root.resolve("config-core/src/main/resources/core.txt"), "updated core\n")
+        root.resolve("libraries-build/packages/config-core/src/main/java/fixture/RemovedCore.java").delete()
+        write(root.resolve("libraries-build/packages/config-core/src/main/resources/core.txt"), "updated core\n")
 
         targets.forEach { target ->
             write(root.resolve("$target/src/main/resources/unique-platform-main.txt"), "updated\n")
@@ -119,7 +119,7 @@ class ResourceCompositionTest {
     private fun prepareBuild(root: File, cases: Map<String, List<Input>>) {
         write(root.resolve("settings.gradle.kts"), """
             rootProject.name = "resource-regression"
-            includeBuild("config-core")
+            includeBuild("libraries-build")
             include(":libraries:foundation", ":editions:shared", "external", ${targets.joinToString { "\"$it\"" }})
             project(":libraries:foundation").projectDir = file("inputs/shared-library")
             project(":editions:shared").projectDir = file("inputs/version-library")
@@ -130,16 +130,20 @@ class ResourceCompositionTest {
         listOf("SourceSetArtifacts.kt", "ConfigSourceSets.kt", "ConfigCore.kt", "ResourceComposition.kt", "ModInput.kt", "SharedCode.kt").forEach { name ->
             copyResource("helpers/$name", root.resolve("buildSrc/src/main/kotlin/net/meatwo310/mdk/build/$name"))
         }
-        write(root.resolve("config-core/settings.gradle.kts"), "rootProject.name = \"config-core\"\n")
-        write(root.resolve("config-core/build.gradle.kts"), """
+        write(root.resolve("libraries-build/settings.gradle.kts"), """
+            rootProject.name = "library-fixture"
+            include(":config-core")
+            project(":config-core").projectDir = file("packages/config-core")
+        """.trimIndent() + "\n")
+        write(root.resolve("libraries-build/packages/config-core/build.gradle.kts"), """
             plugins { `java-library` }
             group = "fixture"
             version = "1.0"
             java.withSourcesJar()
         """.trimIndent() + "\n")
-        write(root.resolve("config-core/src/main/java/fixture/ConfigCore.java"), "package fixture; public class ConfigCore {}\n")
-        write(root.resolve("config-core/src/main/java/fixture/RemovedCore.java"), "package fixture; public class RemovedCore {}\n")
-        write(root.resolve("config-core/src/main/resources/core.txt"), "core\n")
+        write(root.resolve("libraries-build/packages/config-core/src/main/java/fixture/ConfigCore.java"), "package fixture; public class ConfigCore {}\n")
+        write(root.resolve("libraries-build/packages/config-core/src/main/java/fixture/RemovedCore.java"), "package fixture; public class RemovedCore {}\n")
+        write(root.resolve("libraries-build/packages/config-core/src/main/resources/core.txt"), "core\n")
         write(root.resolve("external/src/main/java/fixture/External.java"), "package fixture; public class External {}\n")
         write(root.resolve("${directory("common")}/src/main/java/fixture/Excluded.java"), "must not compile or be published\n")
         write(root.resolve("${directory("version")}/src/config/java/fixture/Excluded.java"), "must not compile or be published\n")

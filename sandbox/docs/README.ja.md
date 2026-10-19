@@ -187,7 +187,7 @@ GTNHGradleを使用する1.7.10プロジェクトでは、依存関係の宣言�
 
 ## 設定システム
 
-ローダー非依存の設定フレームワークは、sandboxの外の[`../../packages/config-core`](../../packages/config-core)にあります。独自のwrapper、テスト、sources jarを持つJava 17の独立したビルドで、そのディレクトリで`./gradlew build`を実行するとMinecraftを設定せずに検証できます。sandboxのsettingsは`includeBuild("../packages/config-core")`で接続し、通常のライブラリ依存`net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT`をローカルのビルドに置換します。設定規約はcoreのクラスとソースをModの配布jar・sources jarへ含め、開発実行用にもクラスをステージングします。利用者がmodsディレクトリに別のconfig-core jarを入れる必要はありません。
+ローダー非依存の設定フレームワークは、sandboxの外の[`../../packages/config-core`](../../packages/config-core)にあります。リポジトリルートのライブラリビルドに属するJava 17のサブプロジェクト`:config-core`で、ルートから`./gradlew :config-core:build`を実行するとMinecraftを設定せずに検証できます。ライブラリ群はルートのwrapperと`build-logic`の規約を共有し、sandboxは独立したビルドとして残します。sandboxのsettingsは`includeBuild("..")`で接続し、通常のライブラリ依存`net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT`をローカルのライブラリに置換します。設定規約はcoreのクラスとソースをModの配布jar・sources jarへ含め、開発実行用にもクラスをステージングします。利用者がmodsディレクトリに別のconfig-core jarを入れる必要はありません。
 
 フレームワークの境界は次のとおりです。
 
@@ -429,7 +429,7 @@ PlatformConfigRegistrar.registerAll(modContainer, VersionedConfigSpec.bindAll(co
 
 ビルドワークフローは`settings.gradle.kts`からサブプロジェクトを検出し、それぞれを個別にビルドしてローダーのアーティファクトをアップロードします。利用可能なサーバーまたはゲームテストのスモークチェックを実行し、スモークテストに`runServer`を使う場合はシャットダウンログを検証したうえで、生成したjarを使ったヘッドレスクライアントのランタイムテストを開始します。ほとんどのローダープロジェクトでは対応する`<minecraft>-common`プロジェクトが必要ですが、単独の`1.7.10-forge`プロジェクトは`ciRequiresCommon=false`でこの要件を無効にしています。なお、Fabric Game TestsはFabric Loomを通じて設定され、Fabricの`build`タスクの一部として実行されます。
 
-`Sandbox integration tests`ワークフローは、最初に独立したconfig coreとsandboxのリソース合成をテストします。`main`・`main2`へのpush、プルリクエスト、手動実行で起動します。信頼された実行ではプラットフォームごとのGradleキャッシュを保存し、プルリクエストでは既存キャッシュを読み取るだけにします。
+`Sandbox integration tests`ワークフローは、最初にリポジトリルートのビルドで全ライブラリモジュールを検証し、続いてsandboxのリソース合成をテストします。`main`・`main2`へのpush、プルリクエスト、手動実行で起動します。信頼された実行ではプラットフォームごとのGradleキャッシュを保存し、プルリクエストでは既存キャッシュを読み取るだけにします。
 
 ### リリースCI
 

@@ -4,21 +4,23 @@ This file maps repository locations to responsibilities.
 
 Paths below are relative to sandbox unless stated otherwise.
 
-## Independent Packages
+## Library Modules
 
 `../packages/config-core`
 
-- Independent Java 17 library build, wrapper, sources jar, and contract tests.
+- Java 17 `:config-core` subproject of the repository-root library build.
+- Uses the root wrapper and `build-logic` Java library convention.
+- Produces a sources jar and has contract tests.
 - Owns `net.meatwo310.mdk.config` declarations, values, and binding contracts.
 - Has no dependency on sandbox, Minecraft, loaders, or client UI.
-- Included by sandbox settings as a composite build; consumed as a normal
+- Sandbox includes the repository root with `includeBuild("..")`; consumed as a normal
   binary/sources dependency and embedded by the config conventions.
 
-## Root
+## Sandbox Root
 
 `settings.gradle.kts`
 
-- Includes every Gradle subproject that is enabled in this repository.
+- Includes the sandbox Gradle subprojects enabled for Minecraft integration.
 - Defines `ciBuildProjectNames` as all children except `common` and `*-common`.
 - Controls which loader projects enter the build and release matrices.
 
@@ -240,7 +242,7 @@ Paths below are relative to sandbox unless stated otherwise.
 `.github/workflows/sandbox.yml` (repository root)
 
 - Detects platform projects with `writeCiBuildMatrix`.
-- Tests the independent config core and sandbox build logic before the matrix.
+- Tests the repository-root library modules and sandbox build logic before the matrix.
 - Runs on pushes to `main` and `main2`, pull requests, and manual dispatch.
 - Saves per-platform Gradle caches on trusted runs; pull requests read caches only.
 - Uploads jars and runtime mod jars, then runs game/server/runtime tests.

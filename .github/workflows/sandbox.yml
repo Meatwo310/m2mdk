@@ -29,7 +29,7 @@ defaults:
     working-directory: sandbox
 
 # This workflow tests the consumer project in sandbox against real Minecraft
-# dependencies after checking the independent config-core package.
+# dependencies after checking the repository-root library build.
 jobs:
   detect:
     name: Detect sandbox projects and test build logic
@@ -58,8 +58,8 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Test independent config core
-        run: ../packages/config-core/gradlew -p ../packages/config-core build --no-daemon --no-parallel --max-workers=1
+      - name: Test library modules
+        run: ../gradlew -p .. build --no-daemon --no-parallel --max-workers=1
 
       - name: Detect sandbox platform projects
         id: detect

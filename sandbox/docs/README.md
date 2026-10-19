@@ -223,14 +223,16 @@ compilation outputs.
 ## Configuration System
 
 The loader-neutral config framework lives outside the sandbox in
-[`../../packages/config-core`](../../packages/config-core). It is an independent
-Java 17 build with its own wrapper, tests, and sources jar; run `./gradlew build`
-in that directory without configuring Minecraft. The sandbox settings include
-it through `includeBuild("../packages/config-core")` and substitute the normal
-`net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT` library dependency. Config
-conventions include its classes and sources in the mod's distribution and
-sources jars, and stage its classes for development runs. Users do not need a
-separate config-core jar in their mods directory.
+[`../../packages/config-core`](../../packages/config-core). It is the
+`:config-core` Java 17 subproject of the repository-root library build. Run
+`./gradlew :config-core:build` from the repository root to test it without
+configuring Minecraft. The root wrapper and `build-logic` conventions are shared
+by library modules; sandbox remains a separate build. Sandbox settings connect
+it through `includeBuild("..")` and substitute the normal
+`net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT` dependency with the local library.
+The config conventions include core classes and sources in the mod's distribution
+and sources jars, and stage its classes for development runs. Users do not need
+to install a separate config-core jar in their mods directory.
 
 The framework boundaries are:
 
@@ -490,7 +492,7 @@ PlatformConfigRegistrar.registerAll(modContainer, VersionedConfigSpec.bindAll(co
 
 ## GitHub Actions
 
-The `Sandbox integration tests` workflow first tests the independent config core and sandbox resource composition. It runs on pushes to `main` and `main2`, pull requests, and manual dispatch. Trusted runs save Gradle caches for each platform; pull requests read existing caches only.
+The `Sandbox integration tests` workflow first tests all library modules through the repository-root build and then sandbox resource composition. It runs on pushes to `main` and `main2`, pull requests, and manual dispatch. Trusted runs save Gradle caches for each platform; pull requests read existing caches only.
 
 The build workflow detects subprojects from `settings.gradle.kts`, builds each one independently, uploads loader artifacts, runs the available server or game-test smoke checks, verifies the `runServer` shutdown log when that smoke test is used, and then launches a headless client runtime test with the produced jars. Most loader projects require a matching `<minecraft>-common` project; the standalone `1.7.10-forge` project opts out with `ciRequiresCommon=false`. Note: Fabric Game Tests are configured through Fabric Loom and run as part of the Fabric `build` task.
 

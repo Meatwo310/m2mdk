@@ -21,7 +21,7 @@ plugins {
 
 
 /// Common ///
-includeBuild("../packages/config-core")
+includeBuild("..")
 
 include("common")
 

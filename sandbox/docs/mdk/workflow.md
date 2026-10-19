@@ -23,7 +23,7 @@ Use the narrowest correct location:
 - Put cross-version shared Java in `common/src/main`.
 - Put cross-version shared config declarations in `common/src/config`.
 - Put loader-neutral config framework code in repository-root
-  `packages/config-core`, not in sandbox. Test it with that package's wrapper.
+  `packages/config-core`, not in sandbox. Test it with the repository-root wrapper.
 - Put shared UI display helpers in `common/src/configClient`; Spec-dependent
   UI helpers belong in `<mc>/common/src/configClient`.
 - Put one-version shared Java in `<mc>/common/src/main`.
@@ -96,9 +96,10 @@ For shared changes, build representative downstream projects:
 ./gradlew :1.18.2-forge:build :1.20.1-fabric:build :26.1-neo:build
 ```
 
-For config core changes, first run `./gradlew build --no-parallel --max-workers=1`
-from repository-root `packages/config-core`. This must work without configuring
-sandbox or Minecraft. Then build representative sandbox consumers. Check that
+For config core changes, first run
+`./gradlew :config-core:build --no-parallel --max-workers=1` from the repository
+root. Run `./gradlew build` there to check all library modules. This must work
+without configuring sandbox or Minecraft. Then build representative sandbox consumers. Check that
 core classes and sources appear exactly once in their jars and that development
 staging replaces the core dependency jar rather than loading it a second time.
 
