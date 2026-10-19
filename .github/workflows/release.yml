@@ -1,4 +1,4 @@
-name: Release
+name: Release sandbox Mod
 
 on:
   workflow_dispatch:
@@ -18,11 +18,16 @@ permissions:
   contents: write
 
 concurrency:
-  group: release
+  group: sandbox-release
   cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: sandbox
 
 jobs:
   release:
+    name: Release sandbox Mod artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -32,7 +37,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Prepare release version
+      - name: Prepare sandbox Mod release version
         env:
           BUMP: ${{ inputs.bump }}
         run: |
@@ -121,7 +126,7 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Read mod name
+      - name: Read sandbox Mod name
         run: |
           chmod u+x ./gradlew
           MOD_NAME=$(./gradlew -q properties --property modName | awk -F': ' '/^modName: / { print $2; exit }')
@@ -131,7 +136,7 @@ jobs:
           fi
           echo "MOD_NAME=$MOD_NAME" >> "$GITHUB_ENV"
 
-      - name: Detect platform projects
+      - name: Detect sandbox platform projects
         id: detect
         run: |
           chmod u+x ./gradlew
@@ -147,10 +152,10 @@ jobs:
           jq . <<< "$JSON"
           echo "::endgroup::"
 
-      - name: Build platform projects
+      - name: Build sandbox platform projects
         run: ./gradlew ${{ steps.detect.outputs.build_tasks }}
 
-      - name: Collect release jars
+      - name: Collect sandbox Mod release JARs
         run: |
           mkdir -p build/release/libs
           while IFS= read -r artifact; do
@@ -172,7 +177,7 @@ jobs:
           if [[ -z "$PREVIOUS_TAG" ]]; then
             echo "First release of $MOD_NAME." > build/release/RELEASE_NOTES.md
           else
-            git cliff "$PREVIOUS_TAG..HEAD" --unreleased --tag "$RELEASE_TAG" --strip all --output build/release/RELEASE_NOTES.md
+            git cliff --config ../cliff.toml "$PREVIOUS_TAG..HEAD" --unreleased --tag "$RELEASE_TAG" --strip all --output build/release/RELEASE_NOTES.md
           fi
 
       - name: Tag and push release refs
@@ -197,5 +202,5 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          body_path: build/release/RELEASE_NOTES.md
-          files: build/release/libs/*.jar
+          body_path: sandbox/build/release/RELEASE_NOTES.md
+          files: sandbox/build/release/libs/*.jar

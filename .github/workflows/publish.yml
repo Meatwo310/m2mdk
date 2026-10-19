@@ -1,15 +1,15 @@
-name: Publish
+name: Publish sandbox Mod
 
 on:
   workflow_dispatch:
     inputs:
       curseforge:
-        description: Publish to CurseForge
+        description: Publish sandbox Mod to CurseForge
         required: true
         default: true
         type: boolean
       modrinth:
-        description: Publish to Modrinth
+        description: Publish sandbox Mod to Modrinth
         required: true
         default: true
         type: boolean
@@ -36,11 +36,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-${{ github.ref_name }}
+  group: sandbox-publish-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   publish:
+    name: Publish sandbox Mod artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -88,7 +89,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Publish release artifacts
+      - name: Publish sandbox Mod release artifacts
+        working-directory: sandbox
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
@@ -111,9 +113,9 @@ jobs:
           ./gradlew --no-daemon --continue publishMods "${publish_args[@]}"
 
       - name: Upload dry-run report
-        if: ${{ !cancelled() && inputs.dry_run && hashFiles('build/publishMods/**') != '' }}
+        if: ${{ !cancelled() && inputs.dry_run && hashFiles('sandbox/build/publishMods/**') != '' }}
         uses: actions/upload-artifact@v7
         with:
-          name: publish-dry-run-${{ env.PUBLISH_TAG }}
-          path: build/publishMods/
+          name: sandbox-publish-dry-run-${{ env.PUBLISH_TAG }}
+          path: sandbox/build/publishMods/
           if-no-files-found: error

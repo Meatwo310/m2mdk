@@ -1,4 +1,4 @@
-name: EditorConfig
+name: Repository formatting
 
 on:
   workflow_dispatch:
@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   check:
+    name: Check repository EditorConfig rules
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -1,4 +1,4 @@
-name: Build
+name: Sandbox integration tests
 
 on:
   workflow_dispatch:
@@ -9,19 +9,26 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'docs/**'
-      - '*.md'
+      - 'sandbox/docs/**'
+      - '**/*.md'
   pull_request:
     paths-ignore:
-      - 'docs/**'
-      - '*.md'
+      - 'sandbox/docs/**'
+      - '**/*.md'
 
 concurrency:
-  group: build-${{ github.event.pull_request.number || github.ref }}
+  group: sandbox-integration-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+defaults:
+  run:
+    working-directory: sandbox
+
+# This workflow tests the consumer project in sandbox against real Minecraft
+# dependencies. Package build and unit tests belong in a separate workflow.
 jobs:
   detect:
+    name: Detect sandbox projects and test build logic
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -45,7 +52,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Detect subprojects with Gradle
+      - name: Detect sandbox platform projects
         id: detect
         run: |
           chmod u+x ./gradlew
@@ -53,17 +60,17 @@ jobs:
           JSON=$(<build/ci/build-matrix.json)
           echo "matrix=$(jq -c '.' <<< "$JSON")" >> "$GITHUB_OUTPUT"
           echo "count=$(jq 'length' <<< "$JSON")" >> "$GITHUB_OUTPUT"
-          echo "::group::Platform projects"
+          echo "::group::Sandbox platform projects"
           jq . <<< "$JSON"
           echo "::endgroup::"
 
-      - name: Verify resource composition
+      - name: Test sandbox resource composition
         run: ./gradlew -p buildSrc test --configuration-cache --no-daemon --max-workers=1
 
   build:
     needs: detect
     if: ${{ needs.detect.outputs.count != '0' }}
-    name: build (${{ matrix.subproject }})
+    name: Sandbox (${{ matrix.subproject }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -90,22 +97,22 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Build with Gradle
+      - name: Build sandbox Mod with real Minecraft dependencies
         run: chmod u+x ./gradlew && ./gradlew ":${{ matrix.subproject }}:build"
 
-      - name: Upload artifact
+      - name: Upload sandbox Mod JARs
         uses: actions/upload-artifact@v7
         with:
-          path: ${{ matrix.project_dir }}/build/libs/
-          name: artifact-${{ matrix.subproject }}
+          path: sandbox/${{ matrix.project_dir }}/build/libs/
+          name: sandbox-${{ matrix.subproject }}
 
       # Fabric Game Tests are run implicitly by the build task.
-      - name: Run NeoForge/Forge Game Tests
+      - name: Run sandbox NeoForge/Forge Game Tests
         if: ${{ matrix.run_game_test_server }}
         timeout-minutes: 10
         run: ./gradlew ":${{ matrix.subproject }}:runGameTestServer"
 
-      - name: Run Server
+      - name: Verify sandbox server startup and shutdown
         if: ${{ matrix.run_server }}
         timeout-minutes: 10
         run: |
@@ -126,21 +133,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Stage mod for runtime test client
+      - name: Stage sandbox Mod for client loading test
         if: ${{ matrix.run_mc_runtime_test }}
         run: |
-          mkdir -p run/mods
+          mkdir -p "$GITHUB_WORKSPACE/run/mods"
           main_artifact="${{ matrix.project_dir }}/build/libs/${{ matrix.main_artifact }}"
           test -f "$main_artifact"
-          cp "$main_artifact" run/mods/
+          cp "$main_artifact" "$GITHUB_WORKSPACE/run/mods/"
           if [[ -d "${{ matrix.project_dir }}/build/ciRuntimeMods" ]]; then
             find "${{ matrix.project_dir }}/build/ciRuntimeMods" -maxdepth 1 -type f -name '*.jar' \
-              -exec cp {} run/mods/ \;
+              -exec cp {} "$GITHUB_WORKSPACE/run/mods/" \;
           fi
-          test -n "$(find run/mods -maxdepth 1 -type f -name '*.jar' -print -quit)"
-          ls -la run/mods
+          test -n "$(find "$GITHUB_WORKSPACE/run/mods" -maxdepth 1 -type f -name '*.jar' -print -quit)"
+          ls -la "$GITHUB_WORKSPACE/run/mods"
 
-      - name: Run MC runtime test client
+      - name: Verify sandbox Mod loads in Minecraft client
         if: ${{ matrix.run_mc_runtime_test }}
         timeout-minutes: 10
         uses: headlesshq/mc-runtime-test@5.0.0
