@@ -12,13 +12,18 @@ import org.gradle.kotlin.dsl.register
 
 /** Repository wiring supplies these paths before convention plugins are applied. */
 abstract class SharedCodeExtension {
+    abstract val embeddedPackage: Property<String>
     abstract val configCoreDependency: Property<String>
+    abstract val configDependencies: org.gradle.api.provider.ListProperty<String>
+    abstract val configUiDependencies: org.gradle.api.provider.ListProperty<String>
     abstract val commonProject: Property<String>
     abstract val versionProject: Property<String>
     abstract val versionConfigEnabled: Property<Boolean>
 
     init {
         versionConfigEnabled.convention(true)
+        configDependencies.convention(emptyList())
+        configUiDependencies.convention(emptyList())
     }
 }
 

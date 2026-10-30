@@ -7,31 +7,32 @@ m2mdk is a monorepo of reusable libraries for
 [m2mdk-template](https://github.com/Meatwo310/m2mdk-template), a modular Minecraft
 mod development template that supports multiple Minecraft versions and mod loaders.
 
-Building on the experience of
-[custom-mdk](https://github.com/Meatwo310/custom-mdk), m2mdk moves shared functionality
-into reusable modules to reduce boilerplate and make the template simpler and more
-flexible.
+Reusable config APIs and screens live under `packages/`, organized by Minecraft
+version, loader, and feature. The `sandbox/` build provides example Mods and
+integration checks. Libraries are embedded into each consuming Mod with relocated
+packages to avoid conflicts.
 
 ## Development
 
-Use JDK 25 to run Gradle. The Foojay Toolchain Resolver downloads additional JDKs
-as needed. If you use Nix, run `nix develop` to enter the development environment.
+Use JDK 25, or enter the Nix development environment with `nix develop`.
 
-Build and test the libraries from the repository root:
-
-```sh
-./gradlew build
-```
-
-Library modules live under `packages/`. The `sandbox/` directory is a separate
-Minecraft integration build that consumes the local libraries. To build a sandbox
-target, run:
+Build the libraries for one Minecraft version:
 
 ```sh
-./sandbox/gradlew -p sandbox :26.1.2-fabric:build
+./gradlew -Pmdk.minecraft=26.1.2 build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for commit message and scope conventions.
+Omit `-Pmdk.minecraft` to build all versions. For a sandbox integration build:
+
+```sh
+CI=true ./sandbox/gradlew -p sandbox -Pmdk.minecraft=26.1.2 :26.1.2-fabric:build
+```
+
+`CI=true` avoids Minecraft decompilation in ModDevGradle; leave it unset when you
+need Minecraft sources for debugging.
+
+See [Library development](docs/development.md) for module structure, embedding,
+and verification, and [Contributing](CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 

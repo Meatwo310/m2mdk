@@ -11,6 +11,7 @@ repositories {
 }
 
 dependencies {
+    implementation("net.meatwo310.mdk:m2mdk-build-logic:0.1.0-SNAPSHOT")
     implementation(libs.mod.publish.plugin)
     implementation(libs.neoforged.moddev.gradle)
     implementation(libs.forgegradle.plugin)
@@ -20,6 +21,13 @@ dependencies {
 }
 
 tasks.processTestResources {
+    from("../../build-logic/src/main/kotlin") {
+        include("mdk.java-library-conventions.gradle.kts", "mdk.config-library.gradle.kts")
+        into("resource-composition/conventions")
+    }
+    from("../../build-logic/src/main/kotlin/net/meatwo310/mdk/gradle") {
+        into("resource-composition/helpers")
+    }
     // Test the current helpers in an isolated build without loading Minecraft plugins.
     from("src/main/kotlin/net/meatwo310/mdk/build") {
         include("SourceSetArtifacts.kt", "ConfigSourceSets.kt", "ConfigCore.kt", "ResourceComposition.kt", "ModInput.kt", "SharedCode.kt")

@@ -1,5 +1,7 @@
 package net.meatwo310.mdk.build
 
+import net.meatwo310.mdk.gradle.relocateMdk
+import net.meatwo310.mdk.gradle.RelocatedFileFilter
 import java.io.File
 import org.gradle.api.Action
 import org.gradle.api.Project
@@ -78,6 +80,31 @@ class ResourceComposition internal constructor(private val project: Project) {
             )
             project.tasks.withType<Jar>().matching { it.name == "sourcesJar" }.configureEach {
                 eachFile(sourceResourceFilter)
+            }
+            project.sharedCode().embeddedPackage.orNull?.let { targetPackage ->
+                val relocated = project.relocateMdk(
+                    project.files(ordered.map { it.classes }),
+                    project.files(ordered.map { it.sources }),
+                    targetPackage,
+                )
+                val classesDirectory = project.layout.buildDirectory.dir("mdk/relocation/classes").get().asFile
+                val sourcesDirectory = project.layout.buildDirectory.dir("mdk/relocation/sources").get().asFile
+                val classesFilter = RelocatedFileFilter(classesDirectory, ".class")
+                project.tasks.named<Jar>("jar") {
+                    includeEmptyDirs = false
+                    from(relocated.classes)
+                    eachFile(classesFilter)
+                }
+                project.tasks.withType<Jar>().matching { it.name == "sourcesJar" }.configureEach {
+                    includeEmptyDirs = false
+                    from(relocated.sources)
+                    eachFile(RelocatedFileFilter(sourcesDirectory, ".java"))
+                }
+                project.tasks.withType<Sync>().matching { it.name == "stageModForDevelopment" }.configureEach {
+                    includeEmptyDirs = false
+                    from(relocated.classes)
+                    eachFile(classesFilter)
+                }
             }
             development?.let { configureDevelopmentClasspath(it) }
         }

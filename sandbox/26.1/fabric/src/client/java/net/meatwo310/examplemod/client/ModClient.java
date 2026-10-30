@@ -1,16 +1,12 @@
 package net.meatwo310.examplemod.client;
 
-import fuzs.forgeconfigapiport.fabric.api.v5.client.ConfigScreenFactoryRegistry;
 import net.fabricmc.api.ClientModInitializer;
 import net.meatwo310.examplemod.Constants;
-import net.meatwo310.mdk.config.ui.KeyedConfigScreen;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
+import net.meatwo310.mdk.config.ui.PlatformConfigScreenRegistrar;
 
 public class ModClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-        ConfigScreenFactoryRegistry.INSTANCE.register(Constants.MODID, (modId, parent) ->
-                new ConfigurationScreen(modId, parent, KeyedConfigScreen::new)
-        );
+        PlatformConfigScreenRegistrar.register(Constants.MODID);
     }
 }

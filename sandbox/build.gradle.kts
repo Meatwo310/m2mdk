@@ -1,4 +1,5 @@
 import groovy.json.JsonOutput
+import net.meatwo310.mdk.gradle.VerifyEmbeddedConfig
 import net.meatwo310.mdk.build.exportModInputs
 import net.meatwo310.mdk.build.sharedCode
 import net.meatwo310.mdk.build.platformArtifacts
@@ -139,8 +140,19 @@ val modVersion = providers.fileContents(layout.projectDirectory.file("version.tx
 subprojects {
     // Repository layout policy lives here, outside reusable convention plugins.
     sharedCode {
+        embeddedPackage.set("${project.property("modGroupId")}.internal.mdk")
         configCoreDependency.set("net.meatwo310.mdk:config-core:0.1.0-SNAPSHOT")
         commonProject.set(":common")
+        if (name != "common" && name != "1.7.10-forge") {
+            val minecraftVersion = name.substringBeforeLast('-')
+            val loader = name.substringAfterLast('-')
+            if (loader != "common" || minecraftVersion !in setOf("1.18.2", "1.19.2")) {
+                configDependencies.set(listOf("net.meatwo310.mdk:$name-config:0.1.0-SNAPSHOT"))
+            }
+            if (loader != "forge" && minecraftVersion !in setOf("1.18.2", "1.19.2", "1.20.1")) {
+                configUiDependencies.set(listOf("net.meatwo310.mdk:$name-config-ui:0.1.0-SNAPSHOT"))
+            }
+        }
         if (name != "common" && name != "1.7.10-forge") {
             versionProject.set(":${name.substringBeforeLast('-')}-common")
             versionConfigEnabled.set(name.substringBeforeLast('-') !in setOf("1.18.2", "1.19.2"))
@@ -237,6 +249,28 @@ subprojects {
     }
 
     afterEvaluate {
+        if (name != "common" && !name.endsWith("-common")) {
+            if (name == "1.7.10-forge") {
+                tasks.register("verifyEmbeddedConfig") { enabled = false }
+            } else {
+                val platform = extensions.getByType<net.meatwo310.mdk.build.PlatformArtifactsExtension>()
+                val hasUi = sharedCode().configUiDependencies.get().isNotEmpty()
+                val artifactNames = platformArtifacts()
+                val verifyConfig = tasks.register<VerifyEmbeddedConfig>("verifyEmbeddedConfig") {
+                    binaryJar.set(layout.buildDirectory.file("libs/${artifactNames.mainArtifactName}"))
+                    dependsOn(tasks.named(platform.mainJarTaskName.get()))
+                    sourcesJar.set(tasks.named<AbstractArchiveTask>(platform.sourcesJarTaskName.get()).flatMap { it.archiveFile })
+                    developmentDirectory.set(layout.buildDirectory.dir("mdk/developmentMod"))
+                    embeddedPackage.set(sharedCode().embeddedPackage)
+                    includesUi.set(hasUi)
+                    requiredClasses.set(listOf("ConfigEntry", "ConfigDeclaration", "adapter/VersionedConfigSpec", "adapter/PlatformConfigRegistrar") +
+                        if (hasUi) listOf("ui/PlatformConfigScreenRegistrar", "ui/KeyedConfigScreen", "ui/ConfigReadableNames", "ui/ConfigTranslationKeys", "ui/ConfigScreenTranslations") else emptyList())
+                    dependsOn(tasks.named("stageModForDevelopment"), tasks.named("mdkDevelopmentClasses"))
+                    tasks.findByName("reobfJar")?.let { dependsOn(it) }
+                }
+                tasks.named("check") { dependsOn(verifyConfig) }
+            }
+        }
         tasks.withType<JavaExec>().configureEach {
             standardInput = System.`in`
         }

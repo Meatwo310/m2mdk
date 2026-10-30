@@ -100,6 +100,162 @@ class ResourceCompositionTest {
         verify(root, cases, fabricResourceOverride = "explicit winner\n")
     }
 
+    @Test
+    fun `embedding relocates the transitive library closure and callers in archives and development`() {
+        val root = temporary.newFolder("embedded-config")
+        prepareBuild(root, resourceCases())
+        root.resolve("libraries-build/settings.gradle.kts").appendText("\ninclude(\":config-adapter\")\nproject(\":config-adapter\").projectDir = file(\"packages/config-adapter\")\n")
+        write(root.resolve("libraries-build/packages/config-core/src/main/java/net/meatwo310/mdk/config/Probe.java"), """
+            package net.meatwo310.mdk.config;
+            public class Probe { public static String value() { return "config-library"; } }
+        """.trimIndent())
+        write(root.resolve("libraries-build/packages/config-adapter/build.gradle.kts"), """
+            plugins { `java-library` }
+            group = "fixture"
+            version = "1.0"
+            java.withSourcesJar()
+            dependencies { api(project(":config-core")) }
+            configurations.named("sourcesElements") { extendsFrom(configurations.api.get()) }
+        """.trimIndent())
+        write(root.resolve("libraries-build/packages/config-adapter/src/main/java/net/meatwo310/mdk/config/Adapter.java"), """
+            package net.meatwo310.mdk.config;
+            public class Adapter { public static String value() { return Probe.value(); } }
+        """.trimIndent())
+        root.resolve("build.gradle.kts").appendText("""
+
+            listOf("neo", "fabric").forEach { target ->
+                project(":${'$'}target") {
+                    sharedCode { embeddedPackage.set("fixture.${'$'}target.internal.mdk") }
+                    libraryInput("fixture:config-adapter:1.0")
+                }
+            }
+        """.trimIndent())
+        listOf("neo", "fabric").forEach { target ->
+            write(root.resolve("$target/src/main/java/fixture/Caller.java"), """
+                package fixture;
+                import net.meatwo310.mdk.config.Adapter;
+                public class Caller { public static String value() { return Adapter.value(); } }
+            """.trimIndent())
+        }
+        val tasks = listOf("neo", "fabric").flatMap { target ->
+            listOf("stageModForDevelopment", "jar", "sourcesJar").map { ":$target:$it" }
+        }
+        run(root, tasks)
+        val reused = run(root, tasks)
+        assertContains(reused.output, "Reusing configuration cache.")
+        val jars = listOf("neo", "fabric").map { root.resolve("$it/build/libs/$it.jar") }
+        java.net.URLClassLoader(jars.map { it.toURI().toURL() }.toTypedArray(), null).use { loader ->
+            listOf("neo", "fabric").forEach { target ->
+                val adapter = loader.loadClass("fixture.$target.internal.mdk.config.Adapter")
+                assertEquals("config-library", adapter.getMethod("value").invoke(null))
+            }
+        }
+        listOf("neo", "fabric").forEach { target ->
+            val relocated = "fixture/$target/internal/mdk/config"
+            listOf("classes", "sources").forEach { part ->
+                val suffix = if (part == "classes") "class" else "java"
+                assertTrue(root.resolve("$target/build/mdk/libraries/ConfigAdapter/$part/net/meatwo310/mdk/config/Probe.$suffix").isFile)
+            }
+            ZipFile(root.resolve("$target/build/libs/$target.jar")).use { jar ->
+                assertTrue(jar.getEntry("$relocated/Probe.class") != null)
+                assertTrue(jar.getEntry("$relocated/Adapter.class") != null)
+                assertTrue(jar.entries().asSequence().none { it.name.startsWith("net/meatwo310/mdk/") })
+                assertTrue(jar.getEntry("fixture/External.class") == null)
+            }
+            ZipFile(root.resolve("$target/build/libs/$target-sources.jar")).use { jar ->
+                val caller = jar.getInputStream(jar.getEntry("fixture/Caller.java")).bufferedReader().readText()
+                assertContains(caller, "import fixture.$target.internal.mdk.config.Adapter;")
+                assertTrue(jar.getEntry("$relocated/Adapter.java") != null)
+            }
+            java.net.URLClassLoader(arrayOf(root.resolve("$target/build/mdk/developmentMod").toURI().toURL()), null).use { loader ->
+                assertEquals("config-library", loader.loadClass("fixture.Caller").getMethod("value").invoke(null))
+            }
+        }
+    }
+
+    @Test
+    fun `published library variants preserve transitive binaries sources and licenses`() {
+        val producer = temporary.newFolder("published-producer")
+        write(producer.resolve("settings.gradle.kts"), "rootProject.name = \"published-producer\"\ninclude(\"core\", \"adapter\")\n")
+        write(producer.resolve("LICENSE"), "fixture library license\n")
+        write(producer.resolve("buildSrc/build.gradle.kts"), "plugins { `kotlin-dsl` }\nrepositories { gradlePluginPortal() }\n")
+        listOf("mdk.java-library-conventions.gradle.kts", "mdk.config-library.gradle.kts").forEach { name ->
+            copyResource("conventions/$name", producer.resolve("buildSrc/src/main/kotlin/$name"))
+        }
+        write(producer.resolve("build.gradle.kts"), """
+            subprojects {
+                extensions.extraProperties["javaVersion"] = JavaVersion.current().majorVersion
+                apply(plugin = "mdk.config-library")
+                group = "fixture"
+                version = "1.0"
+                // Model a loader replacing normal variants with transformed distribution artifacts.
+                // The production embedding variants must still select the original classes/sources.
+                val distribution = tasks.register<Jar>("distributionJar") { archiveClassifier.set("distribution") }
+                val distributionSources = tasks.register<Jar>("distributionSourcesJar") { archiveClassifier.set("distribution-sources") }
+                listOf("apiElements", "runtimeElements").forEach { name ->
+                    configurations.named(name) { outgoing.artifacts.clear(); outgoing.artifact(distribution) }
+                }
+                configurations.named("sourcesElements") {
+                    outgoing.artifacts.clear()
+                    outgoing.artifact(distributionSources)
+                }
+                extensions.configure<PublishingExtension> {
+                    repositories.maven {
+                        name = "fixture"
+                        url = rootProject.layout.projectDirectory.dir("repo").asFile.toURI()
+                    }
+                }
+            }
+            project(":adapter").dependencies.add("api", project(":core"))
+        """.trimIndent())
+        write(producer.resolve("core/src/main/java/net/meatwo310/mdk/config/Core.java"), """
+            package net.meatwo310.mdk.config;
+            public record Core(int value) {}
+        """.trimIndent())
+        write(producer.resolve("adapter/src/main/java/net/meatwo310/mdk/config/Adapter.java"), """
+            package net.meatwo310.mdk.config;
+            public class Adapter { public static int value() { return new Core(42).value(); } }
+        """.trimIndent())
+        run(producer, listOf("publishAllPublicationsToFixtureRepository"))
+
+        val consumer = temporary.newFolder("published-consumer")
+        write(consumer.resolve("settings.gradle.kts"), "rootProject.name = \"published-consumer\"\n")
+        write(consumer.resolve("buildSrc/build.gradle.kts"), "plugins { `kotlin-dsl` }\nrepositories { gradlePluginPortal() }\n")
+        copyResource("helpers/EmbeddedLibrary.kt", consumer.resolve("buildSrc/src/main/kotlin/net/meatwo310/mdk/gradle/EmbeddedLibrary.kt"))
+        write(consumer.resolve("build.gradle.kts"), """
+            import net.meatwo310.mdk.gradle.embeddedLibrary
+            plugins { java }
+            repositories { maven { url = uri("${producer.resolve("repo").toURI()}") } }
+            val library = embeddedLibrary("fixture:adapter:1.0")
+            tasks.register<Sync>("consumeClasses") {
+                from(library.classes)
+                into(layout.buildDirectory.dir("consumed/classes"))
+            }
+            tasks.register<Sync>("consumeSources") {
+                from(library.sources)
+                into(layout.buildDirectory.dir("consumed/sources"))
+            }
+            tasks.register<Sync>("consumeResources") {
+                from(library.resources)
+                into(layout.buildDirectory.dir("consumed/resources"))
+            }
+        """.trimIndent())
+        val tasks = listOf("consumeClasses", "consumeSources", "consumeResources")
+        run(consumer, tasks)
+        assertContains(run(consumer, tasks).output, "Reusing configuration cache.")
+        listOf("Core", "Adapter").forEach { name ->
+            assertTrue(consumer.resolve("build/consumed/classes/net/meatwo310/mdk/config/$name.class").isFile)
+            assertTrue(consumer.resolve("build/consumed/sources/net/meatwo310/mdk/config/$name.java").isFile)
+        }
+        val classes = consumer.resolve("build/consumed/classes").walkTopDown().filter { it.extension == "class" }
+            .map { it.relativeTo(consumer.resolve("build/consumed/classes")).invariantSeparatorsPath }.toSet()
+        assertEquals(setOf("net/meatwo310/mdk/config/Core.class", "net/meatwo310/mdk/config/Adapter.class"), classes)
+        assertEquals("fixture library license\n", consumer.resolve("build/consumed/resources/META-INF/m2mdk/LICENSE").readText())
+        java.net.URLClassLoader(arrayOf(consumer.resolve("build/consumed/classes").toURI().toURL()), null).use { loader ->
+            assertEquals(42, loader.loadClass("net.meatwo310.mdk.config.Adapter").getMethod("value").invoke(null))
+        }
+    }
+
     private fun resourceCases(): MutableMap<String, List<Input>> {
         val cases = linkedMapOf<String, List<Input>>()
         var pair = 0
@@ -126,9 +282,12 @@ class ResourceCompositionTest {
         """.trimIndent() + "\n")
         listOf("libraries", "editions").forEach { root.resolve(it).mkdirs() }
         copyResource("build.gradle.kts", root.resolve("build.gradle.kts"))
-        write(root.resolve("buildSrc/build.gradle.kts"), "plugins { `kotlin-dsl` }\nrepositories { mavenCentral() }\n")
+        write(root.resolve("buildSrc/build.gradle.kts"), "plugins { `kotlin-dsl` }\nrepositories { mavenCentral(); gradlePluginPortal() }\ndependencies { implementation(\"com.gradleup.shadow:shadow-gradle-plugin:9.2.2\") }\n")
         listOf("SourceSetArtifacts.kt", "ConfigSourceSets.kt", "ConfigCore.kt", "ResourceComposition.kt", "ModInput.kt", "SharedCode.kt").forEach { name ->
             copyResource("helpers/$name", root.resolve("buildSrc/src/main/kotlin/net/meatwo310/mdk/build/$name"))
+        }
+        listOf("EmbeddedLibrary.kt", "MdkRelocation.kt").forEach { name ->
+            copyResource("helpers/$name", root.resolve("buildSrc/src/main/kotlin/net/meatwo310/mdk/gradle/$name"))
         }
         write(root.resolve("libraries-build/settings.gradle.kts"), """
             rootProject.name = "library-fixture"

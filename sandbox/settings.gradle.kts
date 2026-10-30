@@ -25,7 +25,10 @@ includeBuild("..")
 
 include("common")
 
+val selectedMinecraftVersions = providers.gradleProperty("mdk.minecraft").orElse(providers.environmentVariable("MDK_MINECRAFT")).orNull?.split(",")?.toSet()
+
 fun includeMc(minecraftVersion: String, kind: String) {
+    if (selectedMinecraftVersions != null && minecraftVersion !in selectedMinecraftVersions) return
     val projectName = "$minecraftVersion-$kind"
     include(projectName)
     project(":$projectName").projectDir = file("$minecraftVersion/$kind")

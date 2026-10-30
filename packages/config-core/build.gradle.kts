@@ -1,5 +1,5 @@
 plugins {
-    id("mdk.java-library-conventions")
+    id("mdk.config-library")
 }
 
 group = "net.meatwo310.mdk"

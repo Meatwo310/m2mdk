@@ -23,6 +23,14 @@ fun Project.configureConfigSourceSet(name: String = CONFIG_SOURCE_SET_NAME): Sou
     val sourceSet = sourceSets.findByName(name) ?: sourceSets.create(name)
     dependencies.add(sourceSet.implementationConfigurationName, sharedCode().configCoreDependency.get())
     configCoreInput()
+    val modules = if (name == CONFIG_CLIENT_SOURCE_SET_NAME)
+        sharedCode().configUiDependencies.get() else sharedCode().configDependencies.get()
+    for (module in modules) {
+        libraryInput(module).let { input ->
+            sourceSet.compileClasspath = input.output + sourceSet.compileClasspath
+            sourceSet.runtimeClasspath += input.output
+        }
+    }
     sourceSet.compileClasspath += configurations.getByName("compileClasspath")
     sourceSet.runtimeClasspath += sourceSet.output + sourceSet.compileClasspath
     return sourceSet
