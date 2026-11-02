@@ -16,7 +16,7 @@ fun Project.configureFabricConfigConvention(
     dependencyLibrary: VersionCatalogLibrary,
     versionConfigSourceSet: VersionConfigSourceSet,
 ) {
-    plugins.withId("fabric-mod-conventions") {
+    plugins.withId("net.meatwo310.mdk.fabric-mod-conventions") {
         platformArtifacts {
             publishingDependencies {
                 required("forge-config-api-port")

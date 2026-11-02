@@ -61,9 +61,8 @@ fun String.toPublishTaskSuffix(): String =
         .filter { it.isNotEmpty() }
         .joinToString("") { part -> part.replaceFirstChar { it.titlecase() } }
 
-val modVersion = providers.fileContents(layout.projectDirectory.file("version.txt"))
-    .asText
-    .map { it.trim() }
+val modVersion = providers.gradleProperty("modVersion")
+    .orElse(providers.fileContents(layout.projectDirectory.file("version.txt")).asText.map { it.trim() })
     .get()
 val modName = providers.gradleProperty("modName").get()
 val publishTag = providers.gradleProperty("publishTag").orElse("v$modVersion")
@@ -100,10 +99,12 @@ tasks.withType<PublishModTask>().configureEach {
 }
 
 gradle.projectsEvaluated {
-    val allPublishTargets = (gradle.extensions.extraProperties["ciBuildProjectNames"] as List<*>)
-        .map { it.toString() }
-        .map { projectName ->
-            val artifacts = project(":$projectName").platformArtifacts()
+    val allPublishTargets = rootProject.subprojects
+        .filter { it.extensions.findByType(net.meatwo310.mdk.build.PlatformArtifactsExtension::class.java) != null }
+        .sortedBy { it.path }
+        .map { target ->
+            val projectName = target.path.removePrefix(":")
+            val artifacts = target.platformArtifacts()
             PublishTarget(
                 projectName = projectName,
                 minecraftVersion = artifacts.minecraftVersion,

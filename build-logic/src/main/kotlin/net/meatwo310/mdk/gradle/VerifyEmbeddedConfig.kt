@@ -7,8 +7,10 @@ import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
+import org.gradle.work.DisableCachingByDefault
 
 /** Inspect the artifacts players and developers actually consume. */
+@DisableCachingByDefault(because = "Verification has no outputs and must inspect the current Mod artifacts.")
 abstract class VerifyEmbeddedConfig : DefaultTask() {
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)

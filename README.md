@@ -3,7 +3,7 @@
 > [!WARNING]
 > This project is experimental. Backward compatibility is not guaranteed.
 
-m2mdk is a monorepo of reusable libraries for
+m2mdk provides reusable Gradle plugins and libraries for
 [m2mdk-template](https://github.com/Meatwo310/m2mdk-template), a modular Minecraft
 mod development template that supports multiple Minecraft versions and mod loaders.
 
@@ -31,7 +31,8 @@ CI=true ./sandbox/gradlew -p sandbox -Pmdk.minecraft=26.1.2 :26.1.2-fabric:build
 `CI=true` avoids Minecraft decompilation in ModDevGradle; leave it unset when you
 need Minecraft sources for debugging.
 
-See [Library development](docs/development.md) for module structure, embedding,
+See [Gradle plugins](docs/gradle-plugins.md) for using the conventions without
+copying `buildSrc`. See [Library development](docs/development.md) for module structure, embedding,
 and verification, and [Contributing](CONTRIBUTING.md) for contribution guidelines.
 
 ## License

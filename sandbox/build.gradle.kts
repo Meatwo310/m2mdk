@@ -1,18 +1,13 @@
 import groovy.json.JsonOutput
 import net.meatwo310.mdk.gradle.VerifyEmbeddedConfig
-import net.meatwo310.mdk.build.exportModInputs
 import net.meatwo310.mdk.build.sharedCode
 import net.meatwo310.mdk.build.platformArtifacts
 import net.meatwo310.mdk.build.supportsGameTestServer
 import org.gradle.plugins.ide.idea.model.IdeaModel
 
 plugins {
-    id("net.fabricmc.fabric-loom") apply false
-    id("net.fabricmc.fabric-loom-remap") apply false
-    id("net.minecraftforge.gradle") apply false
-    id("net.neoforged.moddev") apply false
-    id("net.neoforged.moddev.legacyforge") apply false
-    id("mod-publish-conventions")
+    id("net.meatwo310.mdk.mod-publish-conventions")
+    id("net.meatwo310.mdk.mod-base-conventions") apply false
 }
 
 modPublishing {
@@ -132,12 +127,8 @@ with(System.getProperties()) {
     println("Configuring with Java: $version, JVM: $vmVersion ($vendor), Arch: $arch")
 }
 
-val modVersion = providers.fileContents(layout.projectDirectory.file("version.txt"))
-    .asText
-    .map { it.trim() }
-    .get()
-
 subprojects {
+    apply(plugin = "net.meatwo310.mdk.mod-base-conventions")
     // Repository layout policy lives here, outside reusable convention plugins.
     sharedCode {
         embeddedPackage.set("${project.property("modGroupId")}.internal.mdk")
@@ -158,16 +149,6 @@ subprojects {
             versionConfigEnabled.set(name.substringBeforeLast('-') !in setOf("1.18.2", "1.19.2"))
         }
     }
-    val modGroupId = project.property("modGroupId").toString()
-
-    extensions.extraProperties["modVersion"] = modVersion
-    version = modVersion
-    group = modGroupId
-
-    tasks.withType<AbstractArchiveTask>().configureEach {
-        archiveVersion.set("v$modVersion")
-    }
-
     repositories {
         maven {
             name = "Minecraft Libraries"
@@ -232,17 +213,7 @@ subprojects {
 //        }
     }
 
-    tasks.withType<JavaCompile>().configureEach {
-        doFirst {
-            with(javaCompiler.get().metadata) {
-                println("Compiling with Java: $javaRuntimeVersion, JVM: $jvmVersion ($vendor)")
-            }
-        }
-        options.encoding = "UTF-8"
-    }
-
     plugins.withType<JavaLibraryPlugin> {
-        exportModInputs()
         dependencies {
             add("compileOnlyApi", libs.jspecify)
         }

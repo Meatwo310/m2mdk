@@ -1,7 +1,7 @@
 import net.meatwo310.mdk.build.*
 
 plugins {
-    id("fabric-mod-conventions")
+    id("net.meatwo310.mdk.fabric-mod-conventions")
     id("net.fabricmc.fabric-loom")
 }
 

@@ -1,9 +1,9 @@
 import net.meatwo310.mdk.build.req
 
 plugins {
-    id("fabric-loom-remap-mod-conventions")
-    id("fabric-api-conventions")
-    id("fabric-config-conventions")
+    id("net.meatwo310.mdk.fabric-loom-remap-mod-conventions")
+    id("net.meatwo310.mdk.fabric-api-conventions")
+    id("net.meatwo310.mdk.fabric-config-conventions")
 }
 
 val modmenuVersion = project.property("modmenuVersion").toString()

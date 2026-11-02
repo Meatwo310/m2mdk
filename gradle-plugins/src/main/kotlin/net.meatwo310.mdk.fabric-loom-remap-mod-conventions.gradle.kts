@@ -1,12 +1,10 @@
 import net.meatwo310.mdk.build.PlatformArtifactsExtension
 import net.meatwo310.mdk.build.VersionCatalogLibrary
 import net.meatwo310.mdk.build.developmentModSourceSet
-import net.meatwo310.mdk.build.library
-import net.meatwo310.mdk.build.module
 import net.meatwo310.mdk.build.versionCatalog
 
 plugins {
-    id("fabric-mod-conventions")
+    id("net.meatwo310.mdk.fabric-mod-conventions")
     id("net.fabricmc.fabric-loom-remap")
 }
 
