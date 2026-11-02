@@ -1,6 +1,6 @@
 plugins {
-    id("lexforge-mod-conventions")
-    id("lexforge-config-conventions")
+    id("net.meatwo310.mdk.lexforge-mod-conventions")
+    id("net.meatwo310.mdk.lexforge-config-conventions")
 }
 
 // Mod Dependencies

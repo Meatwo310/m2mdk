@@ -5,7 +5,7 @@ val modId = project.property("modId").toString()
 val minecraftVersion = project.property("minecraftVersion").toString()
 val fabricApiVersion = project.property("fabricApiVersion").toString()
 
-plugins.withId("fabric-mod-conventions") {
+plugins.withId("net.meatwo310.mdk.fabric-mod-conventions") {
     platformArtifacts {
         publishingDependencies {
             required("fabric-api")

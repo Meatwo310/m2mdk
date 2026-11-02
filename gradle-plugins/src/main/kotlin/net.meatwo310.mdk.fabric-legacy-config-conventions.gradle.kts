@@ -2,7 +2,7 @@ import net.meatwo310.mdk.build.*
 
 val forgeConfigApiPortVersion = project.property("forgeConfigApiPortVersion").toString()
 
-disallowConfigConvention("fabric-config-conventions", "fabric-legacy-config-conventions")
+disallowConfigConvention("net.meatwo310.mdk.fabric-config-conventions", "net.meatwo310.mdk.fabric-legacy-config-conventions")
 configureFabricConfigConvention(
     forgeConfigApiPortVersion,
     VersionCatalogLibrary.ForgeConfigApiPortFabricLegacy,

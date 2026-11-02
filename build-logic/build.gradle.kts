@@ -1,5 +1,6 @@
 plugins {
     `kotlin-dsl`
+    `maven-publish`
 }
 
 repositories {
@@ -17,3 +18,12 @@ dependencies {
 
 group = "net.meatwo310.mdk"
 version = "0.1.0-SNAPSHOT"
+
+java.withSourcesJar()
+
+publishing {
+    repositories.maven {
+        name = "local"
+        url = uri(providers.gradleProperty("mdk.pluginRepository").orElse(layout.buildDirectory.dir("repository").map { it.asFile.absolutePath }))
+    }
+}

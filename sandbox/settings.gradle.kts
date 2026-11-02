@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("../gradle-plugins") { name = "m2mdk-gradle-plugins" }
     repositories {
         maven("https://nexus.gtnewhorizons.com/repository/public/") {
             name = "GTNH Maven"
@@ -93,3 +94,12 @@ val ciBuildProjectNames = rootProject.children
     .filterNot { it == "common" || it.endsWith("-common") }
 
 gradle.extensions.extraProperties["ciBuildProjectNames"] = ciBuildProjectNames
+
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        create("libs") {
+            from(files("../gradle-plugins/gradle/libs.versions.toml"))
+        }
+    }
+}

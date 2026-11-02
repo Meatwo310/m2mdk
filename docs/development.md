@@ -57,7 +57,7 @@ license under `META-INF/m2mdk/LICENSE` in the consuming Mod.
 
 ## Build and verification
 
-Build every library with `./gradlew build`, or limit the Minecraft environments
+Build all libraries and Gradle plugins with `./gradlew build`, or limit the Minecraft environments
 configured in a local build:
 
 ```sh
@@ -74,7 +74,7 @@ The sandbox is a separate integration build. For example:
 
 ```sh
 ./sandbox/gradlew -p sandbox -Pmdk.minecraft=26.1.2 :26.1.2-fabric:build --no-parallel --max-workers=1
-./sandbox/gradlew -p sandbox/buildSrc test --no-parallel --max-workers=1
+./gradlew -p gradle-plugins test --no-parallel --max-workers=1
 ```
 
 `mdk.minecraft` accepts a comma-separated version list and limits both builds.

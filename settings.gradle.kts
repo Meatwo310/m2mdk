@@ -5,7 +5,7 @@ pluginManagement {
         maven("https://maven.neoforged.net/releases")
         gradlePluginPortal()
     }
-    includeBuild("build-logic")
+    includeBuild("build-logic") { name = "m2mdk-build-logic" }
 }
 
 plugins {
@@ -13,6 +13,8 @@ plugins {
 }
 
 rootProject.name = "m2mdk"
+
+includeBuild("gradle-plugins") { name = "m2mdk-gradle-plugins" }
 
 include(":config-core")
 project(":config-core").projectDir = file("packages/config-core")

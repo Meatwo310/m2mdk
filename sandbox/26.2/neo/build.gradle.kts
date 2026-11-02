@@ -1,6 +1,6 @@
 plugins {
-    id("neoforge-mod-conventions")
-    id("neoforge-config-conventions")
+    id("net.meatwo310.mdk.neoforge-mod-conventions")
+    id("net.meatwo310.mdk.neoforge-config-conventions")
 }
 
 // Mod Dependencies
