@@ -85,6 +85,34 @@ public class ConfigCoreTest {
     }
 
     @Test
+    public void emptyListDeclarationsUseTheirOwnAdapterMethodAndRemainWritable() {
+        var builder = new ConfigEntryBuilder();
+        var original = new ArrayList<String>();
+        Supplier<String> supplier = () -> "new";
+        Predicate<Object> validator = value -> value instanceof String;
+        var regular = builder.defineList("regular", List.of("one"), () -> "regular", value -> true);
+        var optional = builder.comment("May be empty").defineListAllowEmpty("optional", original, supplier, validator);
+        builder.define("after", true);
+        original.add("later");
+        var adapter = bind(builder.build());
+
+        assertTrue(optional.allowEmpty());
+        assertFalse(regular.allowEmpty());
+        assertEquals(List.of(), optional.defaultValue());
+        assertThrows(UnsupportedOperationException.class, () -> optional.defaultValue().add("other"));
+        assertEquals(List.of("optional"), adapter.allowEmptyLists);
+        assertEquals(List.of("define:regular", "comment:May be empty", "define:optional", "define:after"), adapter.events);
+        assertSame(supplier, adapter.newElement);
+        assertSame(validator, adapter.validator);
+        optional.setAndFlush(List.of("item"));
+        assertEquals(List.of("item"), optional.get());
+        optional.setAndFlush(List.of());
+        assertEquals(List.of(), optional.get());
+        assertEquals(List.of(), adapter.values.get("optional"));
+        assertEquals(2, adapter.flushes);
+    }
+
+    @Test
     public void nestedDeclarationsKeepInstructionOrderAndSkipBlankComments() {
         var nested = new ConfigEntryBuilder();
         nested.comment("   ").define("inside", true);
@@ -156,6 +184,7 @@ public class ConfigCoreTest {
         private final Map<String, Object> values = new HashMap<>();
         private final List<String> events = new ArrayList<>();
         private final List<String> ranges = new ArrayList<>();
+        private final List<String> allowEmptyLists = new ArrayList<>();
         private int flushes;
         private Supplier<?> newElement;
         private Predicate<Object> validator;
@@ -191,6 +220,14 @@ public class ConfigCoreTest {
 
         @Override
         public <T> ConfigEntryBinding<List<T>> defineList(String key, List<T> defaults, Supplier<T> supplier, Predicate<Object> predicate) {
+            newElement = supplier;
+            validator = predicate;
+            return value(key, defaults);
+        }
+
+        @Override
+        public <T> ConfigEntryBinding<List<T>> defineListAllowEmpty(String key, List<T> defaults, Supplier<T> supplier, Predicate<Object> predicate) {
+            allowEmptyLists.add(key);
             newElement = supplier;
             validator = predicate;
             return value(key, defaults);

@@ -31,6 +31,12 @@ provided by `VersionedConfigSpec`. UI modules expose
 `PlatformConfigScreenRegistrar.register(...)`; callers pass a Fabric Mod ID or
 NeoForge `ModContainer`. Loader-specific initialization signatures are preserved.
 
+`ConfigEntryBuilder.defineListAllowEmpty(...)` accepts the same default
+list, new-element supplier, and validator as `defineList(...)`. Use it when a
+list may be empty in NeoForge-style config screens. Other implementations,
+including Configured and direct file editing, currently allow empty lists with
+either method.
+
 The sandbox contains editable config declarations and initialization calls. It
 consumes the libraries through `includeBuild("..")`, using the same coordinates
 as a published library: `net.meatwo310.mdk:<module>:0.1.0-SNAPSHOT`.
