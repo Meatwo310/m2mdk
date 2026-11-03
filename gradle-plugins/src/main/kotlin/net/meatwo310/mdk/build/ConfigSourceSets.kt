@@ -78,30 +78,66 @@ fun Project.optionalSharedConfigInputs(): SharedConfigInputs =
 private fun Project.sharedConfigInputs(includeVersion: Boolean): SharedConfigInputs {
     val wiring = sharedCode()
     return SharedConfigInputs(
-        sharedModInput(wiring.commonProject.get(), CONFIG_SOURCE_SET_NAME, ResourcePriority(2, 2)),
-        if (includeVersion) sharedModInput(wiring.versionProject.get(), CONFIG_SOURCE_SET_NAME, ResourcePriority(1, 2)) else null,
+        sharedModInput(requiredSharedProject("commonProject", wiring.commonProject), CONFIG_SOURCE_SET_NAME, ResourcePriority(2, 2)),
+        if (includeVersion) sharedModInput(requiredSharedProject("versionProject", wiring.versionProject), CONFIG_SOURCE_SET_NAME, ResourcePriority(1, 2)) else null,
     )
 }
 
 fun Project.configureVersionCommonConfigSourceSet(): SourceSet {
     val config = configureConfigSourceSet()
-    val common = sharedModInput(sharedCode().commonProject.get(), CONFIG_SOURCE_SET_NAME, ResourcePriority(2, 2))
+    val common = sharedModInput(requiredSharedProject("commonProject", sharedCode().commonProject), CONFIG_SOURCE_SET_NAME, ResourcePriority(2, 2))
     config.compileClasspath += common.output
     config.runtimeClasspath += common.output
     includeConfigOutput(config)
-    configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME).apply {
-        addConfigClasspath(config)
-        addCompileRuntimeClasspathFrom(config)
-    }
     return config
 }
 
 fun Project.sharedConfigClientInputs(includeVersion: Boolean): List<ModInput> {
     val wiring = sharedCode()
     return listOfNotNull(
-        sharedModInput(wiring.commonProject.get(), CONFIG_CLIENT_SOURCE_SET_NAME, ResourcePriority(2, 0)),
-        if (includeVersion) sharedModInput(wiring.versionProject.get(), CONFIG_CLIENT_SOURCE_SET_NAME, ResourcePriority(1, 0)) else null,
+        sharedModInput(requiredSharedProject("commonProject", wiring.commonProject), CONFIG_CLIENT_SOURCE_SET_NAME, ResourcePriority(2, 0)),
+        if (includeVersion) sharedModInput(requiredSharedProject("versionProject", wiring.versionProject), CONFIG_CLIENT_SOURCE_SET_NAME, ResourcePriority(1, 0)) else null,
     )
+}
+
+fun Project.requireConfigConvention(uiConvention: String, vararg configConventions: String) {
+    if (configConventions.none { pluginManager.hasPlugin(it) }) {
+        throw org.gradle.api.GradleException(
+            "Project '$path': $uiConvention requires ${configConventions.joinToString(" or ")} to be explicitly applied first."
+        )
+    }
+}
+
+fun Project.configureVersionCommonConfigUiSourceSet() {
+    val sourceSets = extensions.getByType<SourceSetContainer>()
+    val config = sourceSets.getByName(CONFIG_SOURCE_SET_NAME)
+    val configClient = configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME)
+    configClient.addConfigClasspath(config)
+    configClient.addCompileRuntimeClasspathFrom(config)
+    for (input in sharedConfigClientInputs(includeVersion = false)) {
+        configClient.compileClasspath += input.output
+        configClient.runtimeClasspath += input.output
+    }
+}
+
+fun Project.configurePlatformConfigUiSourceSet(fabric: Boolean) {
+    val sourceSets = extensions.getByType<SourceSetContainer>()
+    val config = sourceSets.getByName(CONFIG_SOURCE_SET_NAME)
+    val configClient = configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME)
+    val sharedConfig = optionalSharedConfigInputs()
+    val sharedClient = sharedConfigClientInputs(includeVersion = sharedConfig.version != null)
+    configClient.addConfigClasspath(sharedConfig, config)
+    configClient.addCompileRuntimeClasspathFrom(if (fabric) sourceSets.getByName("client") else config)
+    for (input in sharedClient) {
+        configClient.compileClasspath += input.output
+        configClient.runtimeClasspath += input.output
+    }
+    includeConfigOutput(configClient)
+    includeModInputs(*sharedClient.toTypedArray())
+    val target = if (fabric) "client" else SourceSet.MAIN_SOURCE_SET_NAME
+    addConfigOutputTo(target, configClient)
+    addConfigInputsTo(target, *sharedClient.toTypedArray())
+    if (fabric) dependencies.add("runtimeOnly", files(configClient.output))
 }
 
 fun Project.addConfigInputsTo(sourceSetName: String, vararg inputs: ModInput) {

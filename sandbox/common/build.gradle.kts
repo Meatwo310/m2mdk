@@ -1,6 +1,7 @@
 plugins {
     `java-library`
     id("net.meatwo310.mdk.common-config-conventions")
+    id("net.meatwo310.mdk.common-config-ui-conventions")
 }
 
 repositories {

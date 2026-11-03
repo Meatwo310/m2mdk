@@ -1,4 +1,5 @@
 import net.meatwo310.mdk.build.sharedCode
+import net.meatwo310.mdk.build.requiredSharedProject
 
 plugins {
     `java-library`
@@ -10,7 +11,7 @@ val modId = project.property("modId").toString()
 val minecraftVersion = project.property("minecraftVersion").toString()
 
 dependencies {
-    api(project(sharedCode().commonProject.get()))
+    api(project(requiredSharedProject("commonProject", sharedCode().commonProject)))
 }
 
 base {

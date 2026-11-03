@@ -1,6 +1,7 @@
 package net.meatwo310.mdk.build
 
 import org.gradle.api.Project
+import org.gradle.api.GradleException
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.provider.Property
@@ -25,6 +26,24 @@ abstract class SharedCodeExtension {
         configDependencies.convention(emptyList())
         configUiDependencies.convention(emptyList())
     }
+
+    fun configLibraries(minecraftVersion: String, loader: String, version: String) {
+        require(loader in setOf("common", "fabric", "neo", "forge")) {
+            "Unsupported configLibraries loader '$loader'; expected common, fabric, neo, or forge."
+        }
+        configCoreDependency.set("net.meatwo310.mdk:config-core:$version")
+        configDependencies.set(listOf("net.meatwo310.mdk:$minecraftVersion-$loader-config:$version"))
+        configUiDependencies.set(listOf("net.meatwo310.mdk:$minecraftVersion-$loader-config-ui:$version"))
+    }
+}
+
+fun Project.requiredSharedProject(field: String, value: Property<String>): String {
+    val path = value.orNull?.takeIf { it.isNotBlank() }
+        ?: throw GradleException("Project '${project.path}' requires sharedCode.$field to be set.")
+    if (findProject(path) == null) {
+        throw GradleException("Project '${project.path}' sharedCode.$field references nonexistent project '$path'.")
+    }
+    return path
 }
 
 fun Project.sharedCode(configure: SharedCodeExtension.() -> Unit = {}): SharedCodeExtension =
@@ -99,7 +118,7 @@ fun Project.sharedModInput(projectPath: String, sourceSet: String, priority: Res
 fun Project.includeSharedMainInputs() {
     val wiring = sharedCode()
     includeModInputs(
-        sharedModInput(wiring.versionProject.get(), "main", ResourcePriority(1, 3)),
-        sharedModInput(wiring.commonProject.get(), "main", ResourcePriority(2, 3)),
+        sharedModInput(requiredSharedProject("versionProject", wiring.versionProject), "main", ResourcePriority(1, 3)),
+        sharedModInput(requiredSharedProject("commonProject", wiring.commonProject), "main", ResourcePriority(2, 3)),
     )
 }

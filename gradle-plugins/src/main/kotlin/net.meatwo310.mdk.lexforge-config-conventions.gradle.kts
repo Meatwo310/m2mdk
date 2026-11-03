@@ -1,7 +1,7 @@
 import net.meatwo310.mdk.build.*
 
 val modId = project.property("modId").toString()
-val forgeConfigApiPortVersion = project(sharedCode().versionProject.get())
+val forgeConfigApiPortVersion = project(requiredSharedProject("versionProject", sharedCode().versionProject))
     .property("forgeConfigApiPortVersion")
     .toString()
 

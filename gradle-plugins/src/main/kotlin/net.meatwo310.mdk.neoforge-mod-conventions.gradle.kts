@@ -3,6 +3,7 @@ import net.meatwo310.mdk.build.configurePlatformArtifacts
 import net.meatwo310.mdk.build.developmentModSourceSet
 import net.meatwo310.mdk.build.includeSharedMainInputs
 import net.meatwo310.mdk.build.sharedCode
+import net.meatwo310.mdk.build.requiredSharedProject
 import net.meatwo310.mdk.build.supportsGameTestServer
 
 plugins {
@@ -25,7 +26,7 @@ val minecraftVersionRange = project.property("minecraftVersionRange").toString()
 val neoVersion = project.property("neoVersion").toString()
 val javaVersion = project.property("javaVersion").toString()
 
-val commonProject = sharedCode().versionProject.get()
+val commonProject = requiredSharedProject("versionProject", sharedCode().versionProject)
 val loaderVersionRange = project.findProperty("loaderVersionRange")?.toString()
 val parchmentMinecraftVersion = project.findProperty("parchmentMinecraftVersion")?.toString()
 val parchmentMappingsVersion = project.findProperty("parchmentMappingsVersion")?.toString()

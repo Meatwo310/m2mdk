@@ -24,7 +24,7 @@ val parchmentMinecraftVersion = project.property("parchmentMinecraftVersion").to
 val parchmentMappingsVersion = project.property("parchmentMappingsVersion").toString()
 
 val forgeFullVersion = "$minecraftVersion-$forgeVersion"
-val commonProject = sharedCode().versionProject.get()
+val commonProject = requiredSharedProject("versionProject", sharedCode().versionProject)
 configureCiRuntimeMods()
 configurePlatformArtifacts(loader = "forge", javaVersion = 17, sourcesJarTaskName = "sourcesJar")
 

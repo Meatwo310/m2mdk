@@ -12,6 +12,7 @@ val sharedConfig = shared.configureConfigSourceSet()
 shared.configureConfigSourceSet(CONFIG_CLIENT_SOURCE_SET_NAME).addConfigClasspath(sharedConfig)
 versionProject.sharedCode { commonProject.set(shared.path) }
 val versionConfig = versionProject.configureVersionCommonConfigSourceSet()
+versionProject.configureVersionCommonConfigUiSourceSet()
 shared.includeConfigOutput(sharedConfig)
 shared.extensions.getByType<SourceSetContainer>().named("main") { java.exclude("fixture/Excluded.java") }
 versionConfig.java.exclude("fixture/Excluded.java")

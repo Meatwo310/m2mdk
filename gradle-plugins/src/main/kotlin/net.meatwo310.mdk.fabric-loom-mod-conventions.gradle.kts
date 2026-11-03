@@ -1,3 +1,4 @@
+import java.io.File
 import net.meatwo310.mdk.build.*
 
 plugins {
@@ -31,4 +32,18 @@ loom {
 dependencies {
     minecraft("${versionCatalog.module(VersionCatalogLibrary.Minecraft)}:$minecraftVersion")
     implementation(versionCatalog.library(VersionCatalogLibrary.FabricLoader))
+}
+
+// Loom materializes these while snapshotting the graph; clean may delete them.
+tasks.withType<net.fabricmc.loom.task.AbstractRunTask>().configureEach {
+    val launchClasspath = classpath
+    val argumentFile = layout.buildDirectory.file("loom-cache/argFiles/$name")
+    doFirst {
+        val file = argumentFile.get().asFile
+        file.parentFile.mkdirs()
+        val paths = launchClasspath.files.joinToString(File.pathSeparator) {
+            "\"" + it.absolutePath.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        }
+        file.writeText("-classpath\n$paths", Charsets.UTF_8)
+    }
 }
