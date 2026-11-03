@@ -57,12 +57,13 @@ license under `META-INF/m2mdk/LICENSE` in the consuming Mod.
 
 ## Build and verification
 
-Build all libraries and Gradle plugins with `./gradlew build`, or limit the Minecraft environments
-configured in a local build:
+`./gradlew build` builds core libraries, Gradle plugins, and the 26.1.2 libraries.
+Choose other Minecraft environments explicitly:
 
 ```sh
 ./gradlew -Pmdk.minecraft=26.1.2 build --no-parallel --max-workers=1
 ./gradlew -Pmdk.minecraft=none :config-core:build :config-ui-core:build
+./gradlew -Pmdk.libraryMinecraft=all build
 ```
 
 To avoid Minecraft decompilation during verification, set `CI=true`. ModDevGradle uses

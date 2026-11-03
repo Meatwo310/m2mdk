@@ -24,6 +24,7 @@
               actionlint
               editorconfig-checker
               jdk
+              python3
               shellcheck
             ];
             JAVA_HOME = jdk.home;

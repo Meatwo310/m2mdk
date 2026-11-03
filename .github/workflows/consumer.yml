@@ -1,0 +1,42 @@
+name: Consumer template contract
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'gradle-plugins/**'
+      - 'build-logic/**'
+      - 'packages/**'
+      - 'scripts/*consumer*.py'
+      - '.github/workflows/consumer.yml'
+permissions:
+  contents: read
+jobs:
+  consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: Meatwo310/m2mdk-template
+          path: consumer
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build consumer against this source
+        run: ./gradlew -p consumer -Pm2mdk.path=.. build assembleRelease --max-workers=2
+      - name: Inspect consumer artifacts
+        run: python3 scripts/verify-consumer.py consumer
+      - name: Reuse consumer configuration cache
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew -p consumer -Pm2mdk.path=.. build assembleRelease --max-workers=2 | tee cache-reuse.log
+          grep -q 'Reusing configuration cache.' cache-reuse.log
+      - uses: actions/upload-artifact@v7
+        with:
+          name: consumer
+          path: consumer/build/release/

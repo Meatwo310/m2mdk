@@ -22,7 +22,8 @@ Build the libraries for one Minecraft version:
 ./gradlew -Pmdk.minecraft=26.1.2 build
 ```
 
-Omit `-Pmdk.minecraft` to build all versions. For a sandbox integration build:
+The default configures only 26.1.2. Use `-Pmdk.libraryMinecraft=all` explicitly
+to build every supported library version. For a sandbox integration build:
 
 ```sh
 CI=true ./sandbox/gradlew -p sandbox -Pmdk.minecraft=26.1.2 :26.1.2-fabric:build
